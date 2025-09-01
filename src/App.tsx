@@ -15,6 +15,7 @@ import { WelcomeMessage } from "./components/welcome/WelcomeMessage";
 import BotStatus from "./pages/BotStatus";
 import Checkout from "./pages/Checkout";
 import PaymentStatus from "./pages/PaymentStatus";
+import MiniAppDemo from "./pages/MiniAppDemo";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,7 @@ const App = () => (
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/payment-status" element={<PaymentStatus />} />
               <Route path="/build-miniapp" element={<BuildMiniApp />} />
+              <Route path="/miniapp-demo" element={<MiniAppDemo />} />
               <Route path="/welcome" element={<WelcomeMessage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
