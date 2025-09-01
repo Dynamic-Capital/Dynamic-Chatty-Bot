@@ -8,11 +8,54 @@ const Index = () => {
 
   return (
     <div className="container mx-auto p-6 max-w-4xl space-y-6">
+      <div className="grid md:grid-cols-2 gap-6">
+        <Card className="bot-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              🚀 Telegram Mini App Setup
+            </CardTitle>
+            <CardDescription>
+              Configure your Lovable app as a Telegram Mini App
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              onClick={() => navigate('/telegram-setup')} 
+              className="w-full bg-telegram hover:bg-telegram/90"
+              size="lg"
+            >
+              Setup Mini App Integration
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="bot-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              📱 Preview Demo
+            </CardTitle>
+            <CardDescription>
+              See how your Mini App will look in Telegram
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              onClick={() => navigate('/miniapp-demo')} 
+              className="w-full"
+              variant="outline"
+              size="lg"
+            >
+              View Mini App Preview
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader>
-          <CardTitle>🚨 Fix Mini App</CardTitle>
+          <CardTitle>🔧 Build Mini App Content</CardTitle>
           <CardDescription>
-            Your mini app is showing old debug content instead of the coming soon page
+            Update your mini app with the latest content
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -21,10 +64,11 @@ const Index = () => {
             className="w-full"
             size="lg"
           >
-            Build Mini App (Fix Coming Soon Page)
+            Build Mini App (Update Content)
           </Button>
         </CardContent>
       </Card>
+      
       <BotDashboard />
     </div>
   );
