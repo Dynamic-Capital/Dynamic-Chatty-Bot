@@ -81,9 +81,14 @@ export async function handler(req: Request): Promise<Response> {
     // Upload the HTML to storage
     const { error: uploadError } = await supabase.storage
       .from('miniapp')
-      .upload('index.html', new Blob([comingSoonHTML], { type: 'text/html' }), {
-        upsert: true
-      });
+      .upload(
+        'index.html',
+        new Blob([comingSoonHTML], { type: 'text/html; charset=utf-8' }),
+        {
+          upsert: true,
+          contentType: 'text/html; charset=utf-8',
+        },
+      );
 
     if (uploadError) {
       throw uploadError;
