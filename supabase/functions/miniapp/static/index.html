@@ -1,115 +1,18 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Dynamic Capital VIP • Mini App</title>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f8f9fa; color: #212529; }
-    .wrap { max-width: 400px; margin: 0 auto; padding: 16px; }
-    .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-    h1 { color: #0088cc; margin-bottom: 8px; font-size: 1.5rem; }
-    h2 { color: #333; margin-bottom: 8px; font-size: 1.2rem; }
-    .muted { color: #6c757d; font-size: 0.9rem; line-height: 1.4; }
-    .row { display: flex; gap: 8px; margin: 16px 0; }
-    .btn { flex: 1; padding: 10px 16px; border: none; border-radius: 8px; background: #0088cc; color: white; cursor: pointer; font-size: 0.9rem; }
-    .btn.secondary { background: #6c757d; }
-    .btn:hover { opacity: 0.9; }
-    .kv { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
-    .kv:last-child { border-bottom: none; }
-    code { background: #f8f9fa; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.8rem; }
-    .success { color: #28a745; }
-    .error { color: #dc3545; }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <div class="card">
-      <h1>Dynamic Capital VIP</h1>
-      <p class="muted">Welcome to the Mini App. Use the buttons below to verify the backend and your Telegram WebApp context.</p>
-      <div class="row">
-        <button id="btn-version" class="btn">Check /miniapp/version</button>
-        <button id="btn-verify" class="btn secondary" title="Calls /verify-initdata if deployed">Verify initData</button>
-      </div>
-      <div class="kv"><div>WebApp user</div><div><span id="userName" class="muted">—</span></div></div>
-      <div class="kv"><div>Theme</div><div><span id="theme" class="muted">—</span></div></div>
-      <div class="kv"><div>Mini App URL</div><div><code id="miniUrl">—</code></div></div>
-    </div>
-
-    <div class="card">
-      <h2>Status</h2>
-      <div id="status" class="muted">No checks yet.</div>
-    </div>
-
-    <div class="card">
-      <p class="muted">
-        Tip: Your bot's WebApp button should link to this exact HTTPS page.<br>
-        Example: <code>https://&lt;project-ref&gt;.functions.supabase.co/miniapp/</code>
-      </p>
-    </div>
-  </div>
-
-  <script>
-    const tg = window.Telegram?.WebApp;
-    if (tg) tg.ready();
-
-    function updateUI() {
-      const userName = tg?.initDataUnsafe?.user?.first_name || 'demo_user';
-      const theme = tg?.colorScheme || 'light';
-      
-      document.getElementById('userName').textContent = userName;
-      document.getElementById('theme').textContent = theme;
-      document.getElementById('miniUrl').textContent = window.location.href;
-    }
-
-    function setStatus(message, type = 'info') {
-      const statusEl = document.getElementById('status');
-      const className = type === 'success' ? 'success' : type === 'error' ? 'error' : 'muted';
-      statusEl.innerHTML = `<span class="${className}">${message}</span>`;
-    }
-
-    async function checkVersion() {
-      try {
-        const response = await fetch('/miniapp/version');
-        const data = await response.json();
-        setStatus(`✓ Version: ${data.name} (${data.ts})`, 'success');
-      } catch (error) {
-        setStatus('✗ Version check failed', 'error');
-      }
-    }
-
-    async function verifyInitData() {
-      try {
-        const initData = tg?.initData;
-        if (!initData) {
-          setStatus('✗ No initData available', 'error');
-          return;
-        }
-
-        const response = await fetch('/verify-initdata', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ initData })
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setStatus(`✓ InitData verified: ${data.valid ? 'Valid' : 'Invalid'}`, 'success');
-        } else {
-          setStatus(`✗ Verification failed: ${response.status}`, 'error');
-        }
-      } catch (error) {
-        setStatus('✗ Verification error', 'error');
-      }
-    }
-
-    document.getElementById('btn-version').addEventListener('click', checkVersion);
-    document.getElementById('btn-verify').addEventListener('click', verifyInitData);
-    
-    updateUI();
-    setStatus('Ready for testing. Use buttons above to verify backend.');
-  </script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <title>Dynamic Capital VIP • Mini App</title>
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="/assets/index.css">
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/assets/index.js"></script>
+  </body>
 </html>

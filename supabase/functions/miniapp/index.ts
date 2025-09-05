@@ -368,11 +368,11 @@ export async function handler(req: Request): Promise<Response> {
   console.log(`[miniapp] ${req.method} ${path}`);
 
   // Try to use the static server helper for common routes
-  if (path === "/miniapp" || path === "/miniapp/" || path.startsWith("/assets/")) {
+  if (path === "/" || path === "/miniapp" || path === "/miniapp/" || path.startsWith("/assets/")) {
     try {
       const staticOpts: StaticOpts = {
         rootDir: new URL("./static/", import.meta.url),
-        spaRoots: ["/miniapp", "/miniapp/"],
+        spaRoots: ["/", "/miniapp", "/miniapp/"],
         security: ENHANCED_SECURITY_HEADERS,
         extraFiles: ["/favicon.ico", "/favicon.svg", "/vite.svg", "/robots.txt"]
       };
@@ -397,7 +397,7 @@ export async function handler(req: Request): Promise<Response> {
 
   // HEAD routes
   if (req.method === "HEAD") {
-    if (path === "/miniapp" || path === "/miniapp/") {
+    if (path === "/" || path === "/miniapp" || path === "/miniapp/") {
       return withSecurity(new Response(null, { 
         status: 200, 
         headers: { 
@@ -420,8 +420,8 @@ export async function handler(req: Request): Promise<Response> {
 
   if (req.method !== "GET") return withSecurity(mna());
 
-  // GET /miniapp/ → index.html (with multiple fallback strategies)
-  if (path === "/miniapp" || path === "/miniapp/") {
+  // GET / or /miniapp/ → index.html (with multiple fallback strategies)
+  if (path === "/" || path === "/miniapp" || path === "/miniapp/") {
     let htmlContent: string;
     let servedFrom: string;
 
