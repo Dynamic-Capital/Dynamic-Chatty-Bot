@@ -113,7 +113,7 @@ export default function MiniAppDemo() {
               <CardHeader className="text-center">
                 <CardTitle className="text-telegram">Ready to Experience?</CardTitle>
                 <CardDescription>
-                  Try the mini app in your Telegram client
+                  Try the mini app and test promo codes
                 </CardDescription>
               </CardHeader>
               <CardContent className="text-center space-y-4">
@@ -121,8 +121,11 @@ export default function MiniAppDemo() {
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Open in Telegram
                 </Button>
+                <Button variant="outline" className="w-full" onClick={() => window.location.href = '/checkout'}>
+                  Test Promo Codes
+                </Button>
                 <p className="text-xs text-muted-foreground">
-                  * Requires Telegram client and active bot session
+                  Try: TEST10, SAVE20, WELCOME10, LIFETIME50
                 </p>
               </CardContent>
             </Card>
