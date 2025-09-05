@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Dynamic Capital VIP • Mini App</title>
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Dynamic Capital VIP</h1>
+      <p class="muted">Welcome to the Mini App. Use the buttons below to verify the backend and your Telegram WebApp context.</p>
+      <div class="row">
+        <button id="btn-version" class="btn">Check /miniapp/version</button>
+        <button id="btn-verify" class="btn secondary" title="Calls /verify-initdata if deployed">Verify initData</button>
+      </div>
+      <div class="kv"><div>WebApp user</div><div><span id="userName" class="muted">—</span></div></div>
+      <div class="kv"><div>Theme</div><div><span id="theme" class="muted">—</span></div></div>
+      <div class="kv"><div>Mini App URL</div><div><code id="miniUrl">—</code></div></div>
+    </div>
+
+    <div class="card">
+      <h2>Status</h2>
+      <div id="status" class="muted">No checks yet.</div>
+    </div>
+
+    <div class="card">
+      <p class="muted">
+        Tip: Your bot's WebApp button should link to this exact HTTPS page.<br>
+        Example: <code>https://&lt;project-ref&gt;.functions.supabase.co/miniapp/</code>
+      </p>
+    </div>
+  </div>
+
+  <script src="/assets/app.js" type="module"></script>
+</body>
+</html>

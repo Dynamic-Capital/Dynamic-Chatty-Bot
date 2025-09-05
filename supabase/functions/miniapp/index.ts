@@ -232,9 +232,17 @@ export async function handler(req: Request): Promise<Response> {
         arr = indexContent;
       } catch (error) {
         console.warn(
-          "[miniapp] React build not found in static/, falling back to storage",
+          "[miniapp] React build not found in static/, trying simple.html",
           error,
         );
+        // Try the simple HTML version
+        try {
+          const simpleIndexPath = new URL("./static/simple.html", import.meta.url);
+          const simpleContent = await Deno.readFile(simpleIndexPath);
+          arr = simpleContent;
+        } catch (simpleError) {
+          console.warn("[miniapp] Simple HTML also not found, falling back to storage", simpleError);
+        }
       }
     }
 
@@ -245,7 +253,7 @@ export async function handler(req: Request): Promise<Response> {
 
     if (!arr) {
       console.warn(
-        `[miniapp] missing index at ${BUCKET}/${INDEX_KEY} and no React build`,
+        `[miniapp] missing index at ${BUCKET}/${INDEX_KEY} and no static builds`,
       );
       const resp = new Response(FALLBACK_HTML, {
         headers: {
