@@ -66,7 +66,7 @@ export async function handleContentManagement(
 
 export async function handleEditContent(
   chatId: number,
-  _userId: string,
+  userId: string,
   contentKey: string,
 ): Promise<void> {
   try {
@@ -77,6 +77,17 @@ export async function handleEditContent(
       .maybeSingle();
     if (error) throw error;
     const current = data?.content_value ?? "";
+    
+    // Set awaiting input in user session
+    await supabaseAdmin
+      .from("user_sessions")
+      .upsert({
+        telegram_user_id: userId,
+        awaiting_input: `edit_content_${contentKey}`,
+        is_active: true,
+        last_activity: new Date().toISOString(),
+      });
+    
     const msg =
       `📝 *Editing ${contentKey}*\\n\\nCurrent value:\n${current}\n\nSend new content to update this entry.`;
     const keyboard = {
@@ -93,9 +104,19 @@ export async function handleEditContent(
 
 export async function handleAddNewContent(
   chatId: number,
-  _userId: string,
+  userId: string,
 ): Promise<void> {
   try {
+    // Set awaiting input in user session
+    await supabaseAdmin
+      .from("user_sessions")
+      .upsert({
+        telegram_user_id: userId,
+        awaiting_input: "add_new_content",
+        is_active: true,
+        last_activity: new Date().toISOString(),
+      });
+    
     const msg =
       "➕ *Add New Content*\\n\\nSend new content in the format `key=Your content here`.";
     const keyboard = {

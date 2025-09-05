@@ -1189,6 +1189,131 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
   }
 }
 
+async function handleAddAdminUser(chatId: number, userId: string): Promise<void> {
+  const supabase = getSupabase();
+  if (!supabase) return;
+
+  try {
+    // Set awaiting input for admin user ID
+    await supabase.from("user_sessions").upsert({
+      telegram_user_id: userId,
+      awaiting_input: "add_admin_user",
+      is_active: true,
+      last_activity: new Date().toISOString(),
+    });
+
+    await notifyUser(chatId, "👤 **Add Admin User**\n\nSend the Telegram User ID to make admin:");
+  } catch (error) {
+    console.error("Error in handleAddAdminUser:", error);
+    await notifyUser(chatId, "❌ Error setting up admin user addition.");
+  }
+}
+
+async function handleSearchUser(chatId: number, userId: string): Promise<void> {
+  const supabase = getSupabase();
+  if (!supabase) return;
+
+  try {
+    await supabase.from("user_sessions").upsert({
+      telegram_user_id: userId,
+      awaiting_input: "search_user",
+      is_active: true,
+      last_activity: new Date().toISOString(),
+    });
+
+    await notifyUser(chatId, "🔍 **Search User**\n\nSend username, user ID, or name to search:");
+  } catch (error) {
+    console.error("Error in handleSearchUser:", error);
+    await notifyUser(chatId, "❌ Error setting up user search.");
+  }
+}
+
+async function handleManageVipUsers(chatId: number, userId: string): Promise<void> {
+  const supabase = getSupabase();
+  if (!supabase) return;
+
+  try {
+    const { data: vipUsers } = await supabase
+      .from("bot_users")
+      .select("telegram_id, username, first_name, last_name")
+      .eq("is_vip", true)
+      .limit(10);
+
+    let message = "💎 **VIP Users Management**\n\n";
+    
+    if (vipUsers && vipUsers.length > 0) {
+      message += "Current VIP Users:\n";
+      vipUsers.forEach((user, index) => {
+        const name = user.first_name || user.username || user.telegram_id;
+        message += `${index + 1}. ${name} (${user.telegram_id})\n`;
+      });
+    } else {
+      message += "No VIP users found.";
+    }
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: "➕ Add VIP", callback_data: "add_vip_user" },
+          { text: "➖ Remove VIP", callback_data: "remove_vip_user" },
+        ],
+        [
+          { text: "🔄 Refresh", callback_data: "manage_vip_users" },
+          { text: "🔙 Back", callback_data: "manage_table_bot_users" },
+        ],
+      ],
+    };
+
+    await notifyUser(chatId, message, { reply_markup: keyboard });
+  } catch (error) {
+    console.error("Error in handleManageVipUsers:", error);
+    await notifyUser(chatId, "❌ Error fetching VIP users.");
+  }
+}
+
+async function handleExportUsers(chatId: number, userId: string): Promise<void> {
+  const supabase = getSupabase();
+  if (!supabase) return;
+
+  try {
+    const { data: users } = await supabase
+      .from("bot_users")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (!users || users.length === 0) {
+      await notifyUser(chatId, "📋 No users found to export.");
+      return;
+    }
+
+    // Log admin action
+    await supabase.from("admin_logs").insert({
+      admin_telegram_id: userId,
+      action_type: "export_users",
+      action_description: `Exported ${users.length} user records`,
+      affected_table: "bot_users",
+    });
+
+    // Create a simple text summary
+    let exportText = `📊 **User Export Summary**\n\n`;
+    exportText += `Total Users: ${users.length}\n`;
+    exportText += `VIP Users: ${users.filter(u => u.is_vip).length}\n`;
+    exportText += `Admin Users: ${users.filter(u => u.is_admin).length}\n\n`;
+    exportText += `Recent Users:\n`;
+    
+    users.slice(0, 10).forEach((user, index) => {
+      const name = user.first_name || user.username || "Unknown";
+      const status = user.is_vip ? "💎" : user.is_admin ? "👑" : "👤";
+      exportText += `${index + 1}. ${status} ${name} (${user.telegram_id})\n`;
+    });
+
+    await notifyUser(chatId, exportText);
+  } catch (error) {
+    console.error("Error in handleExportUsers:", error);
+    await notifyUser(chatId, "❌ Error exporting users.");
+  }
+}
+
 async function handleCallback(update: TelegramUpdate): Promise<void> {
   const cb = update.callback_query;
   if (!cb) return;

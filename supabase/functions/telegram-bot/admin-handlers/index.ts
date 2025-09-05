@@ -2373,12 +2373,12 @@ export async function handleAdminLogsManagement(
       ],
     };
 
-    await sendMessage(chatId, statsMessage, statsKeyboard);
+    await sendMessage(chatId, logsMessage, logsKeyboard);
   } catch (error) {
-    console.error("Error in table stats overview:", error);
+    console.error("Error in admin logs management:", error);
     await sendMessage(
       chatId,
-      "❌ Error fetching database statistics. Please try again.",
+      "❌ Error fetching admin logs. Please try again.",
     );
   }
 }

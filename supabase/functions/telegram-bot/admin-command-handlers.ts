@@ -82,5 +82,21 @@ export function buildAdminCommandHandlers(
         await notify(chatId, JSON.stringify({ ok: false, error: String(e) }));
       }
     },
+    "/tables": async ({ chatId }) => {
+      const mod = await load();
+      await mod.handleTableManagement(chatId, "system");
+    },
+    "/content": async ({ chatId }) => {
+      const mod = await load();
+      await mod.handleContentManagement(chatId, "system");
+    },
+    "/flags": async ({ chatId }) => {
+      const mod = await load();
+      await mod.handleFeatureFlags(chatId, "system");
+    },
+    "/logs": async ({ chatId }) => {
+      const mod = await load();
+      await mod.handleAdminLogsManagement(chatId, "system");
+    },
   };
 }
