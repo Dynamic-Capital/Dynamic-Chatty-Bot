@@ -1,7 +1,6 @@
-import { mna, nf } from "../_shared/http.ts";
+import { mna, nf, json } from "../_shared/http.ts";
 import { optionalEnv, requireEnv } from "../_shared/env.ts";
-import { contentType } from "https://deno.land/std@0.224.0/media_types/mod.ts";
-import { extname } from "https://deno.land/std@0.224.0/path/mod.ts";
+import { serveStatic, StaticOpts } from "../_shared/static.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Env setup
@@ -11,18 +10,17 @@ const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = requireEnv([
 ]);
 const BUCKET = optionalEnv("MINIAPP_BUCKET") ?? "miniapp";
 const INDEX_KEY = optionalEnv("MINIAPP_INDEX_KEY") ?? "index.html";
-const ASSETS_PREFIX = optionalEnv("MINIAPP_ASSETS_PREFIX") ?? "assets/";
-const SERVE_FROM_STORAGE = optionalEnv("SERVE_FROM_STORAGE") ?? "false";
-const CACHE_LIMIT = Number(optionalEnv("MINIAPP_CACHE_LIMIT") ?? "100");
+const SERVE_FROM_STORAGE = optionalEnv("SERVE_FROM_STORAGE") === "true";
+const DISABLE_HTML_COMPRESSION = optionalEnv("DISABLE_HTML_COMPRESSION") === "true";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
 
-// Basic security headers (same as _shared/static.ts but with frame-ancestors open)
-const SECURITY_HEADERS = {
+// Enhanced security headers with better CSP for Telegram and Lovable preview
+const ENHANCED_SECURITY_HEADERS = {
   "referrer-policy": "strict-origin-when-cross-origin",
-  "x-content-type-options": "nosniff",
+  "x-content-type-options": "nosniff", 
   "permissions-policy": "geolocation=(), microphone=(), camera=()",
   "content-security-policy":
     "default-src 'self' https://*.telegram.org https://telegram.org; " +
@@ -31,7 +29,7 @@ const SECURITY_HEADERS = {
     "img-src 'self' data: https:; " +
     "connect-src 'self' https://*.functions.supabase.co https://*.supabase.co wss://*.supabase.co; " +
     "font-src 'self' data:; " +
-    "frame-ancestors 'self' https://*.telegram.org https://telegram.org https://*.supabase.co;",
+    "frame-ancestors 'self' https://*.telegram.org https://telegram.org https://*.supabase.co https://*.lovable.dev;",
   "strict-transport-security": "max-age=63072000; includeSubDomains; preload",
   "x-frame-options": "ALLOWALL",
 } as const;
@@ -42,10 +40,10 @@ function withSecurity(resp: Response, extra: Record<string, string> = {}) {
   // Preserve original content-type if it exists
   const originalContentType = resp.headers.get("content-type");
 
-  for (const [k, v] of Object.entries(SECURITY_HEADERS)) h.set(k, v);
+  for (const [k, v] of Object.entries(ENHANCED_SECURITY_HEADERS)) h.set(k, v);
   for (const [k, v] of Object.entries(extra)) h.set(k, v);
 
-  // Ensure content-type is preserved
+  // Ensure content-type is preserved and add diagnostic header
   if (originalContentType) {
     h.set("content-type", originalContentType);
   }
@@ -53,103 +51,88 @@ function withSecurity(resp: Response, extra: Record<string, string> = {}) {
   return new Response(resp.body, { status: resp.status, headers: h });
 }
 
-// simple mime helper
-const mime = (p: string) =>
-  (contentType(extname(p)) ?? "application/octet-stream").split(";")[0];
-
-// in-memory cache
-type CacheEntry = {
-  expires: number;
-  body: Uint8Array;
-  headers: Record<string, string>;
-  status: number;
-};
-
-class LRUCache<K, V> {
-  #map = new Map<K, V>();
-  constructor(private max: number) {}
-
-  get(key: K): V | undefined {
-    const value = this.#map.get(key);
-    if (value === undefined) return undefined;
-    this.#map.delete(key);
-    this.#map.set(key, value);
-    return value;
-  }
-
-  set(key: K, value: V) {
-    if (this.#map.has(key)) this.#map.delete(key);
-    this.#map.set(key, value);
-    if (this.#map.size > this.max) {
-      const oldest = this.#map.keys().next().value;
-      if (oldest !== undefined) this.#map.delete(oldest);
-    }
-  }
-
-  delete(key: K) {
-    this.#map.delete(key);
-  }
-}
-
-const cache = new LRUCache<string, CacheEntry>(
-  Number.isFinite(CACHE_LIMIT) && CACHE_LIMIT > 0 ? CACHE_LIMIT : 100,
-);
-
-function fromCache(key: string): Response | null {
-  const c = cache.get(key);
-  if (!c) return null;
-  if (c.expires < Date.now()) {
-    cache.delete(key);
-    return null;
-  }
-  return new Response(c.body.slice(), { status: c.status, headers: c.headers });
-}
-
-function saveCache(key: string, resp: Response, body: Uint8Array, ttl: number) {
-  const headers = Object.fromEntries(resp.headers);
-  delete (headers as Record<string, string>)["content-encoding"];
-  cache.set(key, {
-    expires: Date.now() + ttl,
-    body,
-    headers,
-    status: resp.status,
-  });
-}
-
-// compression helper for html/json
-function maybeCompress(
+// Enhanced compression helper with better encoding detection
+function smartCompress(
   body: Uint8Array,
   req: Request,
-  type: string,
+  contentType: string,
 ): { stream: ReadableStream | Uint8Array; encoding?: string } {
   const accept = req.headers.get("accept-encoding")?.toLowerCase() ?? "";
+  
+  // Skip compression for HTML if disabled
+  if (DISABLE_HTML_COMPRESSION && contentType.startsWith("text/html")) {
+    console.log("[miniapp] HTML compression disabled");
+    return { stream: body };
+  }
 
   // Only compress html and json responses
-  const compressible = type.startsWith("text/html") ||
-    type.startsWith("application/json");
+  const compressible = contentType.startsWith("text/html") ||
+    contentType.startsWith("application/json");
   if (!compressible || !accept) return { stream: body };
 
-  const encodings = accept.split(",").map((e) => e.trim().split(";")[0]);
+  // Parse encodings and respect quality values
+  const encodings = accept.split(",")
+    .map((e) => {
+      const [name, q = "q=1"] = e.trim().split(";");
+      const quality = parseFloat(q.split("=")[1] || "1");
+      return { name: name.trim(), quality };
+    })
+    .filter(e => e.quality > 0)
+    .sort((a, b) => b.quality - a.quality);
 
-  for (const enc of ["br", "gzip"] as const) {
-    if (!encodings.includes(enc)) continue;
-    try {
-      const stream = new Blob([body]).stream().pipeThrough(
-        new CompressionStream(enc),
-      );
-      return { stream, encoding: enc };
-    } catch {
-      // unsupported encoding; try next option
+  console.log(`[miniapp] Accept-Encoding: ${accept}, parsed:`, encodings.map(e => `${e.name}(${e.quality})`).join(", "));
+
+  for (const { name } of encodings) {
+    if (name === "br" || name === "gzip") {
+      try {
+        const stream = new Blob([body]).stream().pipeThrough(
+          new CompressionStream(name),
+        );
+        console.log(`[miniapp] Using compression: ${name}`);
+        return { stream, encoding: name };
+      } catch (e) {
+        console.warn(`[miniapp] Compression ${name} failed:`, e);
+      }
     }
   }
 
+  console.log("[miniapp] No compression used");
   return { stream: body };
 }
 
+// Storage fetching helper
 async function fetchFromStorage(key: string): Promise<Uint8Array | null> {
-  const { data, error } = await supabase.storage.from(BUCKET).download(key);
-  if (error || !data) return null;
-  return new Uint8Array(await data.arrayBuffer());
+  try {
+    const { data, error } = await supabase.storage.from(BUCKET).download(key);
+    if (error || !data) {
+      console.warn(`[miniapp] Storage fetch failed for ${key}:`, error);
+      return null;
+    }
+    console.log(`[miniapp] Successfully fetched ${key} from storage`);
+    return new Uint8Array(await data.arrayBuffer());
+  } catch (e) {
+    console.error(`[miniapp] Storage fetch error for ${key}:`, e);
+    return null;
+  }
+}
+
+// Serve static files from the built React app with fallback
+async function serveStaticIndex(): Promise<Response | null> {
+  try {
+    const staticIndexPath = new URL("./static/index.html", import.meta.url);
+    const htmlContent = await Deno.readTextFile(staticIndexPath);
+    console.log(`[miniapp] Serving static index.html (${htmlContent.length} bytes)`);
+    return new Response(htmlContent, {
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-cache",
+        "x-served-from": "static"
+      }
+    });
+  } catch (e) {
+    console.warn("[miniapp] Static index.html not found:", e.message);
+    return null;
+  }
 }
 
 // Embedded React App HTML Template
@@ -371,8 +354,10 @@ const REACT_APP_HTML = `<!doctype html>
 </html>`;
 
 console.log(
-  "miniapp: serving index from",
-  SERVE_FROM_STORAGE === "true" ? "storage" : "embedded-react",
+  "[miniapp] Configuration - SERVE_FROM_STORAGE:",
+  SERVE_FROM_STORAGE,
+  "DISABLE_HTML_COMPRESSION:",
+  DISABLE_HTML_COMPRESSION
 );
 
 export async function handler(req: Request): Promise<Response> {
@@ -380,156 +365,204 @@ export async function handler(req: Request): Promise<Response> {
   url.pathname = url.pathname.replace(/^\/functions\/v1/, "");
   const path = url.pathname;
 
+  console.log(`[miniapp] ${req.method} ${path}`);
+
+  // Try to use the static server helper for common routes
+  if (path === "/miniapp" || path === "/miniapp/" || path.startsWith("/assets/")) {
+    try {
+      const staticOpts: StaticOpts = {
+        rootDir: new URL("./static/", import.meta.url),
+        spaRoots: ["/miniapp", "/miniapp/"],
+        security: ENHANCED_SECURITY_HEADERS,
+        extraFiles: ["/favicon.ico", "/favicon.svg", "/vite.svg", "/robots.txt"]
+      };
+      
+      // Try static serving first
+      const staticResponse = await serveStatic(req, staticOpts);
+      
+      // If static serving succeeds, add diagnostic header and return
+      if (staticResponse.status === 200) {
+        const headers = new Headers(staticResponse.headers);
+        headers.set("x-served-from", "static");
+        console.log(`[miniapp] Served ${path} from static build`);
+        return new Response(staticResponse.body, { 
+          status: staticResponse.status, 
+          headers 
+        });
+      }
+    } catch (e) {
+      console.warn(`[miniapp] Static serving failed for ${path}:`, e.message);
+    }
+  }
+
   // HEAD routes
   if (req.method === "HEAD") {
     if (path === "/miniapp" || path === "/miniapp/") {
-      return withSecurity(new Response(null, { status: 200 }));
+      return withSecurity(new Response(null, { 
+        status: 200, 
+        headers: { 
+          "content-type": "text/html; charset=utf-8",
+          "x-served-from": "head-check"
+        } 
+      }));
     }
     if (path === "/miniapp/version") {
-      return withSecurity(new Response(null, { status: 200 }));
-    }
-    if (path.startsWith("/assets/")) {
-      const assetPath = path.slice("/assets/".length);
-      const key = ASSETS_PREFIX + assetPath;
-      const cached = fromCache(key);
-      if (!cached) {
-        let exists = false;
-
-        // First try static build
-        if (SERVE_FROM_STORAGE !== "true") {
-          try {
-            const staticAssetPath = new URL(
-              `./static/assets/${assetPath}`,
-              import.meta.url,
-            );
-            await Deno.stat(staticAssetPath);
-            exists = true;
-          } catch {
-            // not found in static build
-          }
+      return withSecurity(new Response(null, { 
+        status: 200,
+        headers: { 
+          "content-type": "application/json; charset=utf-8",
+          "x-served-from": "head-check"
         }
-
-        // Fallback to storage
-        if (!exists) {
-          const arr = await fetchFromStorage(key);
-          if (!arr) {
-            console.warn(
-              `[miniapp] missing asset ${key} in both static and storage`,
-            );
-            return withSecurity(nf());
-          }
-        }
-      }
-
-      const headers: Record<string, string> = {
-        "content-type": mime(path),
-        "cache-control": "public, max-age=31536000, immutable",
-      };
-      return withSecurity(new Response(null, { status: 200, headers }));
+      }));
     }
-    return withSecurity(nf());
+    return withSecurity(nf("Not Found"));
   }
 
   if (req.method !== "GET") return withSecurity(mna());
 
-  // GET /miniapp/ → index.html
+  // GET /miniapp/ → index.html (with multiple fallback strategies)
   if (path === "/miniapp" || path === "/miniapp/") {
-    const cached = fromCache("__index");
-    if (cached) return withSecurity(cached);
-
     let htmlContent: string;
+    let servedFrom: string;
 
-    // Serve from storage only if explicitly enabled
-    if (SERVE_FROM_STORAGE === "true") {
+    // Strategy 1: Serve from storage if enabled
+    if (SERVE_FROM_STORAGE) {
       const arr = await fetchFromStorage(INDEX_KEY);
       if (arr) {
         htmlContent = new TextDecoder().decode(arr);
+        servedFrom = "storage";
+        console.log(`[miniapp] Serving from storage: ${BUCKET}/${INDEX_KEY}`);
       } else {
-        console.warn(`[miniapp] missing index at ${BUCKET}/${INDEX_KEY}, using embedded React app`);
+        console.warn(`[miniapp] Storage fetch failed, trying static build`);
+        const staticResp = await serveStaticIndex();
+        if (staticResp) {
+          const headers = new Headers(staticResp.headers);
+          headers.set("x-served-from", "static-fallback");
+          return withSecurity(new Response(staticResp.body, { 
+            status: staticResp.status, 
+            headers 
+          }));
+        }
+        // Final fallback to embedded
         htmlContent = REACT_APP_HTML;
+        servedFrom = "embedded-fallback";
+        console.log("[miniapp] Using embedded React app as final fallback");
       }
     } else {
-      // Default: serve embedded React app
+      // Strategy 2: Try static build first
+      const staticResp = await serveStaticIndex();
+      if (staticResp) {
+        const headers = new Headers(staticResp.headers);
+        headers.set("x-served-from", "static");
+        return withSecurity(new Response(staticResp.body, { 
+          status: staticResp.status, 
+          headers 
+        }));
+      }
+      
+      // Fallback to embedded
       htmlContent = REACT_APP_HTML;
-      console.log("[miniapp] serving embedded React app");
+      servedFrom = "embedded";
+      console.log("[miniapp] Serving embedded React app");
     }
 
     const arr = new TextEncoder().encode(htmlContent);
-    const type = "text/html; charset=utf-8";
-    const { stream, encoding } = maybeCompress(arr, req, type);
+    const contentType = "text/html; charset=utf-8";
+    const { stream, encoding } = smartCompress(arr, req, contentType);
+    
     const headers: Record<string, string> = {
-      "content-type": type,
+      "content-type": contentType,
       "cache-control": "no-cache",
+      "x-served-from": servedFrom,
     };
-    if (encoding) headers["content-encoding"] = encoding;
+    
+    if (encoding) {
+      headers["content-encoding"] = encoding;
+      console.log(`[miniapp] Applied ${encoding} compression to HTML response`);
+    }
 
-    console.log("[miniapp] Serving index.html with headers:", headers);
+    console.log(`[miniapp] Serving index.html (${arr.length} bytes) with headers:`, headers);
     const resp = new Response(stream, { status: 200, headers });
-    const cacheBody = encoding
-      ? new Uint8Array(await resp.clone().arrayBuffer())
-      : arr;
-    saveCache("__index", resp, cacheBody, 60_000);
     return withSecurity(resp);
   }
 
   // GET /miniapp/version
   if (path === "/miniapp/version") {
-    const body = new TextEncoder().encode(
-      JSON.stringify({ name: "miniapp", ts: new Date().toISOString() }),
-    );
-    const type = "application/json; charset=utf-8";
-    const { stream, encoding } = maybeCompress(body, req, type);
-    const headers: Record<string, string> = { "content-type": type };
+    const versionData = { 
+      name: "miniapp", 
+      ts: new Date().toISOString(),
+      serveFromStorage: SERVE_FROM_STORAGE,
+      htmlCompressionDisabled: DISABLE_HTML_COMPRESSION
+    };
+    
+    const body = new TextEncoder().encode(JSON.stringify(versionData));
+    const contentType = "application/json; charset=utf-8";
+    const { stream, encoding } = smartCompress(body, req, contentType);
+    
+    const headers: Record<string, string> = { 
+      "content-type": contentType,
+      "x-served-from": "version-endpoint"
+    };
     if (encoding) headers["content-encoding"] = encoding;
+    
     const resp = new Response(stream, { status: 200, headers });
+    console.log(`[miniapp] Served version endpoint`);
     return withSecurity(resp);
   }
 
-  // GET /assets/* → try static build first, then storage
+  // GET /assets/* → serve from static build or storage
   if (path.startsWith("/assets/")) {
     const assetPath = path.slice("/assets/".length);
-    const key = ASSETS_PREFIX + assetPath;
-    const cached = fromCache(key);
-    if (cached) return withSecurity(cached);
-
     let arr: Uint8Array | null = null;
+    let servedFrom: string;
 
-    // First try to serve from React build in static/assets/
-    if (SERVE_FROM_STORAGE !== "true") {
-      try {
-        const staticAssetPath = new URL(
-          `./static/assets/${assetPath}`,
-          import.meta.url,
-        );
-        const assetContent = await Deno.readFile(staticAssetPath);
-        arr = assetContent;
-      } catch {
-        // Asset not found in static build, will try storage
+    // Try static build first
+    try {
+      const staticAssetPath = new URL(`./static/assets/${assetPath}`, import.meta.url);
+      arr = await Deno.readFile(staticAssetPath);
+      servedFrom = "static";
+      console.log(`[miniapp] Served asset ${assetPath} from static build`);
+    } catch {
+      // Fallback to storage
+      arr = await fetchFromStorage(`assets/${assetPath}`);
+      if (arr) {
+        servedFrom = "storage";
+        console.log(`[miniapp] Served asset ${assetPath} from storage`);
+      } else {
+        console.warn(`[miniapp] Asset ${assetPath} not found in static or storage`);
+        return withSecurity(nf("Asset not found"));
       }
     }
 
-    // Fallback to storage
     if (!arr) {
-      arr = await fetchFromStorage(key);
+      return withSecurity(nf("Asset not found"));
     }
 
-    if (!arr) {
-      console.warn(`[miniapp] missing asset ${key} in both static and storage`);
-      return withSecurity(nf());
-    }
+    const contentType = (() => {
+      if (assetPath.endsWith(".js")) return "application/javascript";
+      if (assetPath.endsWith(".css")) return "text/css";
+      if (assetPath.endsWith(".html")) return "text/html; charset=utf-8";
+      if (assetPath.endsWith(".json")) return "application/json";
+      if (assetPath.endsWith(".svg")) return "image/svg+xml";
+      if (assetPath.endsWith(".png")) return "image/png";
+      if (assetPath.endsWith(".jpg") || assetPath.endsWith(".jpeg")) return "image/jpeg";
+      if (assetPath.endsWith(".ico")) return "image/x-icon";
+      return "application/octet-stream";
+    })();
 
-    const type = mime(path);
     const headers: Record<string, string> = {
-      "content-type": type,
+      "content-type": contentType,
       "cache-control": "public, max-age=31536000, immutable",
+      "x-served-from": servedFrom,
     };
+    
     const resp = new Response(arr, { status: 200, headers });
-    saveCache(key, resp, arr, 600_000);
     return withSecurity(resp);
   }
 
-  // unknown
-  return withSecurity(nf());
+  // Unknown path → 404
+  console.log(`[miniapp] Path not found: ${path}`);
+  return withSecurity(nf("Not Found"));
 }
 
 if (import.meta.main) {
