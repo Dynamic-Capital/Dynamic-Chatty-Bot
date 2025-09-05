@@ -36,11 +36,16 @@ const PromoCodeInput = ({ planId }: PromoCodeInputProps) => {
         body: {
           code: promoCode.trim().toUpperCase(),
           telegram_id: "123456789", // This would come from auth context in real app
-          plan_id: planId,
+          plan_id: planId || "6e07f718-606e-489d-9626-2a5fa3e84eec", // Default to 1 Month VIP plan if no planId provided
         },
       });
 
-      if (error) throw error;
+      console.log("Promo validation response:", { data, error });
+
+      if (error) {
+        console.error("Promo validation error:", error);
+        throw error;
+      }
 
       setValidation(data);
       
@@ -132,7 +137,7 @@ const PromoCodeInput = ({ planId }: PromoCodeInputProps) => {
         {/* Popular Promo Codes */}
         <div className="flex flex-wrap gap-2">
           <span className="text-xs text-muted-foreground">Try:</span>
-          {["VIPBOTLAUNCH50", "NEWMEMBER20", "VIP50"].map((code) => (
+          {["TEST10", "SAVE20", "WELCOME10", "LIFETIME50"].map((code) => (
             <Button
               key={code}
               variant="ghost"

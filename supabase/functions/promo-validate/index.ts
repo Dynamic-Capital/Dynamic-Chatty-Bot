@@ -20,7 +20,10 @@ export async function handler(req: Request): Promise<Response> {
   if (req.method !== "POST") return mna();
 
   const { code, telegram_id, plan_id } = await req.json().catch(() => ({}));
+  console.log("Promo validation request:", { code, telegram_id, plan_id });
+  
   if (!code || !telegram_id || !plan_id) {
+    console.log("Missing required fields:", { code: !!code, telegram_id: !!telegram_id, plan_id: !!plan_id });
     return bad("bad_request");
   }
 
@@ -33,16 +36,36 @@ export async function handler(req: Request): Promise<Response> {
     "content-type": "application/json",
   };
 
+  console.log("Calling validate_promo_code function with:", { p_code: code, p_telegram_user_id: String(telegram_id) });
+  
   const vr = await fetch(`${SUPABASE_URL}/rest/v1/rpc/validate_promo_code`, {
     method: "POST",
     headers,
     body: JSON.stringify({ p_code: code, p_telegram_user_id: String(telegram_id) }),
   });
-  const [res] = await vr.json();
-  if (!res?.valid) {
+  const res = await vr.json();
+  console.log("Validation response:", res);
+  
+  if (!Array.isArray(res) || res.length === 0) {
+    console.log("No validation result returned");
     return new Response(JSON.stringify({ 
       ok: false, 
-      reason: res?.reason || "invalid" 
+      reason: "invalid" 
+    }), { 
+      status: 200, 
+      headers: { 
+        'Content-Type': 'application/json',
+        ...corsHeaders 
+      } 
+    });
+  }
+  
+  const [validationResult] = res;
+  if (!validationResult?.valid) {
+    console.log("Promo code invalid:", validationResult?.reason);
+    return new Response(JSON.stringify({ 
+      ok: false, 
+      reason: validationResult?.reason || "invalid" 
     }), { 
       status: 200, 
       headers: { 
@@ -52,18 +75,24 @@ export async function handler(req: Request): Promise<Response> {
     });
   }
 
+  console.log("Fetching plan details for plan_id:", plan_id);
   const pr = await fetch(
     `${SUPABASE_URL}/rest/v1/subscription_plans?id=eq.${plan_id}&select=price`,
     { headers },
   );
   const plan = await pr.json();
+  console.log("Plan response:", plan);
+  
   const price = plan?.[0]?.price || 0;
-  const final_amount = calcFinalAmount(price, res.discount_type, res.discount_value);
+  console.log("Plan price:", price, "Discount:", validationResult.discount_type, validationResult.discount_value);
+  
+  const final_amount = calcFinalAmount(price, validationResult.discount_type, validationResult.discount_value);
+  console.log("Final amount calculated:", final_amount);
 
   return new Response(JSON.stringify({
     ok: true,
-    type: res.discount_type,
-    value: res.discount_value,
+    type: validationResult.discount_type,
+    value: validationResult.discount_value,
     final_amount,
   }), { 
     headers: { 
