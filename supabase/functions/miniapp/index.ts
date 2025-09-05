@@ -152,7 +152,8 @@ async function fetchFromStorage(key: string): Promise<Uint8Array | null> {
   return new Uint8Array(await data.arrayBuffer());
 }
 
-const FALLBACK_HTML = `<!doctype html>
+// Embedded React App HTML Template
+const REACT_APP_HTML = `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -160,26 +161,117 @@ const FALLBACK_HTML = `<!doctype html>
   <title>Dynamic Capital VIP • Mini App</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f8f9fa; color: #212529; }
-    .wrap { max-width: 400px; margin: 0 auto; padding: 16px; }
-    .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-    h1 { color: #0088cc; margin-bottom: 8px; font-size: 1.5rem; }
-    h2 { color: #333; margin-bottom: 8px; font-size: 1.2rem; }
-    .muted { color: #6c757d; font-size: 0.9rem; line-height: 1.4; }
-    .row { display: flex; gap: 8px; margin: 16px 0; }
-    .btn { flex: 1; padding: 10px 16px; border: none; border-radius: 8px; background: #0088cc; color: white; cursor: pointer; font-size: 0.9rem; }
-    .btn.secondary { background: #6c757d; }
-    .btn:hover { opacity: 0.9; }
-    .kv { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
-    .kv:last-child { border-bottom: none; }
-    code { background: #f8f9fa; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.8rem; }
-    .success { color: #28a745; }
-    .error { color: #dc3545; }
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      margin: 0;
+      padding: 1rem;
+      background: var(--tg-theme-bg-color, #ffffff);
+      color: var(--tg-theme-text-color, #000000);
+      min-height: 100vh;
+    }
+
+    #app {
+      max-width: 400px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: var(--tg-theme-secondary-bg-color, #f1f3f4);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      margin: 0 0 0.5rem 0;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--tg-theme-text-color, #000000);
+    }
+
+    h2 {
+      margin: 0 0 1rem 0;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--tg-theme-text-color, #000000);
+    }
+
+    .muted {
+      color: var(--tg-theme-hint-color, #708499);
+      font-size: 0.9rem;
+      line-height: 1.4;
+    }
+
+    .row {
+      display: flex;
+      gap: 0.5rem;
+      margin: 1rem 0;
+    }
+
+    .btn {
+      background: var(--tg-theme-button-color, #007aff);
+      color: var(--tg-theme-button-text-color, #ffffff);
+      border: none;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      flex: 1;
+    }
+
+    .btn:hover {
+      opacity: 0.8;
+    }
+
+    .btn.secondary {
+      background: var(--tg-theme-secondary-bg-color, #f1f3f4);
+      color: var(--tg-theme-text-color, #000000);
+      border: 1px solid var(--tg-theme-hint-color, #708499);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .kv {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--tg-theme-hint-color, #e5e5ea);
+    }
+
+    .kv:last-child {
+      border-bottom: none;
+    }
+
+    code {
+      background: var(--tg-theme-secondary-bg-color, #f1f3f4);
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+      font-size: 0.8rem;
+      word-break: break-all;
+    }
+
+    .success {
+      color: #28a745;
+    }
+
+    .error {
+      color: #dc3545;
+    }
   </style>
 </head>
 <body>
-  <div class="wrap">
+  <div id="app">
     <div class="card">
       <h1>Dynamic Capital VIP</h1>
       <p class="muted">Welcome to the Mini App. Use the buttons below to verify the backend and your Telegram WebApp context.</p>
@@ -199,7 +291,7 @@ const FALLBACK_HTML = `<!doctype html>
 
     <div class="card">
       <p class="muted">
-        Tip: Your bot's WebApp button should link to this exact HTTPS page.<br>
+        Tip: Your bot's WebApp button should link to this exact HTTPS page.<br />
         Example: <code>https://&lt;project-ref&gt;.functions.supabase.co/miniapp/</code>
       </p>
     </div>
@@ -209,13 +301,18 @@ const FALLBACK_HTML = `<!doctype html>
     const tg = window.Telegram?.WebApp;
     if (tg) tg.ready();
 
+    // Update UI with Telegram data
     function updateUI() {
       const userName = tg?.initDataUnsafe?.user?.first_name || 'demo_user';
       const theme = tg?.colorScheme || 'light';
       
-      document.getElementById('userName').textContent = userName;
-      document.getElementById('theme').textContent = theme;
-      document.getElementById('miniUrl').textContent = window.location.href;
+      const userNameEl = document.getElementById('userName');
+      const themeEl = document.getElementById('theme');
+      const miniUrlEl = document.getElementById('miniUrl');
+
+      if (userNameEl) userNameEl.textContent = userName;
+      if (themeEl) themeEl.textContent = theme;
+      if (miniUrlEl) miniUrlEl.textContent = window.location.href;
     }
 
     function setStatus(message, type = 'info') {
@@ -259,9 +356,14 @@ const FALLBACK_HTML = `<!doctype html>
       }
     }
 
-    document.getElementById('btn-version').addEventListener('click', checkVersion);
-    document.getElementById('btn-verify').addEventListener('click', verifyInitData);
+    // Add event listeners
+    const versionBtn = document.getElementById('btn-version');
+    const verifyBtn = document.getElementById('btn-verify');
+
+    if (versionBtn) versionBtn.addEventListener('click', checkVersion);
+    if (verifyBtn) verifyBtn.addEventListener('click', verifyInitData);
     
+    // Initialize
     updateUI();
     setStatus('Ready for testing. Use buttons above to verify backend.');
   </script>
@@ -270,7 +372,7 @@ const FALLBACK_HTML = `<!doctype html>
 
 console.log(
   "miniapp: serving index from",
-  SERVE_FROM_STORAGE === "true" ? "storage" : "react-bundle",
+  SERVE_FROM_STORAGE === "true" ? "storage" : "embedded-react",
 );
 
 export async function handler(req: Request): Promise<Response> {
@@ -335,48 +437,24 @@ export async function handler(req: Request): Promise<Response> {
     const cached = fromCache("__index");
     if (cached) return withSecurity(cached);
 
-    let arr: Uint8Array | null = null;
+    let htmlContent: string;
 
-    // First try to serve from React build in static/ directory
-    if (SERVE_FROM_STORAGE !== "true") {
-      try {
-        const staticIndexPath = new URL("./static/index.html", import.meta.url);
-        const indexContent = await Deno.readFile(staticIndexPath);
-        arr = indexContent;
-      } catch (error) {
-        console.warn(
-          "[miniapp] React build not found in static/, trying simple.html",
-          error,
-        );
-        // Try the simple HTML version
-        try {
-          const simpleIndexPath = new URL("./static/simple.html", import.meta.url);
-          const simpleContent = await Deno.readFile(simpleIndexPath);
-          arr = simpleContent;
-        } catch (simpleError) {
-          console.warn("[miniapp] Simple HTML also not found, falling back to storage", simpleError);
-        }
+    // Serve from storage only if explicitly enabled
+    if (SERVE_FROM_STORAGE === "true") {
+      const arr = await fetchFromStorage(INDEX_KEY);
+      if (arr) {
+        htmlContent = new TextDecoder().decode(arr);
+      } else {
+        console.warn(`[miniapp] missing index at ${BUCKET}/${INDEX_KEY}, using embedded React app`);
+        htmlContent = REACT_APP_HTML;
       }
+    } else {
+      // Default: serve embedded React app
+      htmlContent = REACT_APP_HTML;
+      console.log("[miniapp] serving embedded React app");
     }
 
-    // Fallback to storage if React build not available
-    if (!arr) {
-      arr = await fetchFromStorage(INDEX_KEY);
-    }
-
-    if (!arr) {
-      console.warn(
-        `[miniapp] missing index at ${BUCKET}/${INDEX_KEY} and no static builds`,
-      );
-      const resp = new Response(FALLBACK_HTML, {
-        headers: {
-          "content-type": "text/html; charset=utf-8",
-          "cache-control": "no-cache",
-        },
-      });
-      return withSecurity(resp);
-    }
-
+    const arr = new TextEncoder().encode(htmlContent);
     const type = "text/html; charset=utf-8";
     const { stream, encoding } = maybeCompress(arr, req, type);
     const headers: Record<string, string> = {
