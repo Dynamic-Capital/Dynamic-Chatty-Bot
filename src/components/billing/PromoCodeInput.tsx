@@ -32,11 +32,15 @@ const PromoCodeInput = ({ planId }: PromoCodeInputProps) => {
 
     setIsValidating(true);
     try {
+      // Use UUID validation to ensure we pass a valid plan_id
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      const apiPlanId = uuidRegex.test(planId) ? planId : "6e07f718-606e-489d-9626-2a5fa3e84eec";
+      
       const { data, error } = await supabase.functions.invoke("promo-validate", {
         body: {
           code: promoCode.trim().toUpperCase(),
           telegram_id: "123456789", // This would come from auth context in real app
-          plan_id: planId || "6e07f718-606e-489d-9626-2a5fa3e84eec", // Default to 1 Month VIP plan if no planId provided
+          plan_id: apiPlanId,
         },
       });
 
