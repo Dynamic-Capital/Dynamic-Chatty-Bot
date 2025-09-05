@@ -358,9 +358,50 @@ export async function handleDashboardHelp(
 }
 
 async function handleFaqCommand(chatId: number): Promise<void> {
-  const msg = await getContent("faq_general");
-  await notifyUser(chatId, msg ?? "FAQ is coming soon.", {
-    parse_mode: "Markdown",
+  const faqContent = await getContent("faq_general");
+  const { url: miniAppUrl } = await readMiniAppEnv();
+  
+  // Enhanced FAQ with structured content
+  const faqText = `<b>❓ Frequently Asked Questions</b>
+
+${faqContent ?? `<b>Common Questions:</b>
+
+• What is VIP? Premium trading community
+• How to join? Choose a plan below  
+• Payment methods? Bank transfer or crypto
+• Support? Contact us anytime!
+
+💡 Need help? Ask anything!`}`;
+
+  // Create interactive buttons
+  const keyboard = [];
+  
+  // First row: Ask AI and Support
+  keyboard.push([
+    { text: "🤖 Ask AI", callback_data: "cmd:ask" },
+    { text: "💬 Support", callback_data: "nav:support" }
+  ]);
+  
+  // Second row: Education and Plans  
+  keyboard.push([
+    { text: "📚 Education", callback_data: "cmd:education" },
+    { text: "💳 Plans", callback_data: "nav:plans" }
+  ]);
+  
+  // Third row: Back to Dashboard
+  keyboard.push([
+    { text: "🏠 Back to Dashboard", callback_data: "nav:dashboard" }
+  ]);
+  
+  // Add Mini App button if available
+  if (miniAppUrl) {
+    const miniAppText = await getContent("miniapp_button_text") ?? "🚀 Open VIP Mini App";
+    keyboard.push([{ text: miniAppText, web_app: { url: miniAppUrl } }]);
+  }
+
+  await notifyUser(chatId, faqText, {
+    parse_mode: "HTML",
+    reply_markup: { inline_keyboard: keyboard }
   });
 }
 
