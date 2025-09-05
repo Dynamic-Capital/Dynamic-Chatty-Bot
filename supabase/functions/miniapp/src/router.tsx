@@ -1,4 +1,5 @@
 import { Route, Routes } from "react-router-dom";
+import Landing from "./pages/Landing";
 import Home from "./pages/Home";
 import Bank from "./pages/Bank";
 import Crypto from "./pages/Crypto";
@@ -10,7 +11,8 @@ import Status from "./pages/Status";
 export default function AppRouter() {
   return (
     <Routes>
-      <Route path="/" element={<Home />} />
+      <Route path="/" element={<Landing />} />
+      <Route path="/home" element={<Home />} />
       <Route path="/bank" element={<Bank />} />
       <Route path="/crypto" element={<Crypto />} />
       <Route path="/plan" element={<Plan />} />
