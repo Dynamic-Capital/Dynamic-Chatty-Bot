@@ -596,6 +596,10 @@ export function buildCallbackHandlers(
       handlers.handleMediaFilesManagement(chatId, userId),
     manage_table_admin_logs: (chatId, userId) =>
       handlers.handleAdminLogsManagement(chatId, userId),
+    manage_table_kv_config: (chatId, userId) =>
+      handlers.handleKvConfigManagement(chatId, userId),
+    manage_table_abuse_bans: (chatId, userId) =>
+      handlers.handleAbuseBansManagement(chatId, userId),
     edit_content_welcome_message: (chatId, userId) =>
       handlers.handleEditContent(chatId, userId, "welcome_message"),
     edit_content_about_us: (chatId, userId) =>

@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      abuse_bans: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          reason: string | null
+          telegram_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          reason?: string | null
+          telegram_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          reason?: string | null
+          telegram_id?: string
+        }
+        Relationships: []
+      }
       admin_logs: {
         Row: {
           action_description: string
@@ -751,6 +778,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      kv_config: {
+        Row: {
+          created_at: string
+          key: string
+          updated_at: string
+          value: Json | null
+        }
+        Insert: {
+          created_at?: string
+          key: string
+          updated_at?: string
+          value?: Json | null
+        }
+        Update: {
+          created_at?: string
+          key?: string
+          updated_at?: string
+          value?: Json | null
+        }
+        Relationships: []
       }
       media_files: {
         Row: {

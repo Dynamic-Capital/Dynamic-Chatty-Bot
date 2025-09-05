@@ -19,6 +19,7 @@ import { WelcomeMessageEditor } from "@/components/admin/WelcomeMessageEditor";
 import { SystemStatus } from "@/components/admin/SystemStatus";
 import { VipPlansManager } from "@/components/admin/VipPlansManager";
 import { BotDiagnostics } from "@/components/admin/BotDiagnostics";
+import { AdminDataManager } from "@/components/admin/AdminDataManager";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { configClient } from "@/utils/config";
@@ -321,6 +322,18 @@ export const AdminDashboard = () => {
           data = files || [];
           break;
         }
+        case "kv_config": {
+          const { data: config } = await supabase.from("kv_config")
+            .select("*");
+          data = config || [];
+          break;
+        }
+        case "abuse_bans": {
+          const { data: bans } = await supabase.from("abuse_bans")
+            .select("*");
+          data = bans || [];
+          break;
+        }
         default:
           throw new Error("Invalid table name");
       }
@@ -480,6 +493,7 @@ export const AdminDashboard = () => {
           <TabsTrigger value="feature-flags">Feature Flags</TabsTrigger>
           <TabsTrigger value="contact">Contact Info</TabsTrigger>
           <TabsTrigger value="export">Export Data</TabsTrigger>
+          <TabsTrigger value="data-manager">Data Manager</TabsTrigger>
         </TabsList>
 
         <TabsContent value="bot-diagnostics" className="space-y-4">
@@ -791,6 +805,10 @@ export const AdminDashboard = () => {
               </Card>
             ))}
           </div>
+        </TabsContent>
+
+        <TabsContent value="data-manager" className="space-y-4">
+          <AdminDataManager />
         </TabsContent>
       </Tabs>
     </div>

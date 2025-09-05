@@ -364,6 +364,16 @@ View, Create, Edit, Delete, Export data for any table.`;
           text: "📋 Admin Logs",
           callback_data: "manage_table_admin_logs",
         },
+        {
+          text: "⚙️ KV Config",
+          callback_data: "manage_table_kv_config",
+        },
+      ],
+      [
+        {
+          text: "🚫 Abuse Bans", 
+          callback_data: "manage_table_abuse_bans",
+        },
         { text: "📊 Quick Stats", callback_data: "table_stats_overview" },
       ],
       [
@@ -376,6 +386,137 @@ View, Create, Edit, Delete, Export data for any table.`;
   };
 
   await sendMessage(chatId, tableMessage, tableKeyboard);
+}
+
+// KV Config Management
+export async function handleKvConfigManagement(
+  chatId: number,
+  _userId: string,
+): Promise<void> {
+  try {
+    const { data: configs, error } = await supabaseAdmin
+      .from("kv_config")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (error) {
+      console.error("Error fetching kv_config:", error);
+      await sendMessage(chatId, "❌ Error fetching configuration data.");
+      return;
+    }
+
+    const configMessage = buildMessage("⚙️ *Key-Value Configuration Management*", [
+      {
+        title: `🔧 *Current Configs (${configs?.length || 0}):*`,
+        items: configs?.map((config: any) => {
+          const valuePreview = typeof config.value === "object" 
+            ? JSON.stringify(config.value).substring(0, 100) + "..."
+            : String(config.value || "null");
+          return `**${config.key}**\n📝 Value: ${valuePreview}\n🕒 Updated: ${
+            new Date(config.updated_at).toLocaleDateString()
+          }`;
+        }) || [],
+        numbered: true,
+      },
+    ]);
+
+    const configKeyboard = {
+      inline_keyboard: [
+        [
+          { text: "➕ Add Config", callback_data: "add_kv_config" },
+          { text: "✏️ Edit Config", callback_data: "edit_kv_config" },
+        ],
+        [
+          { text: "🗑️ Delete Config", callback_data: "delete_kv_config" },
+          { text: "📊 Export", callback_data: "export_kv_config" },
+        ],
+        [
+          { text: "🔄 Refresh", callback_data: "manage_table_kv_config" },
+          { text: "🔙 Back", callback_data: "table_management" },
+        ],
+      ],
+    };
+
+    await sendMessage(chatId, configMessage, configKeyboard);
+  } catch (error) {
+    console.error("Error in kv_config management:", error);
+    await sendMessage(chatId, "❌ Error managing configuration data.");
+  }
+}
+
+// Abuse Bans Management
+export async function handleAbuseBansManagement(
+  chatId: number,
+  _userId: string,
+): Promise<void> {
+  try {
+    const { data: bans, error } = await supabaseAdmin
+      .from("abuse_bans")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (error) {
+      console.error("Error fetching abuse_bans:", error);
+      await sendMessage(chatId, "❌ Error fetching ban data.");
+      return;
+    }
+
+    const totalBans = await supabaseAdmin
+      .from("abuse_bans")
+      .select("count", { count: "exact" });
+
+    const activeBans = await supabaseAdmin
+      .from("abuse_bans")
+      .select("count", { count: "exact" })
+      .or("expires_at.is.null,expires_at.gt.now()");
+
+    const banMessage = buildMessage("🚫 *Abuse Bans Management*", [
+      {
+        title: "📊 *Statistics:*",
+        items: [
+          `Total Bans: ${totalBans.count || 0}`,
+          `Active Bans: ${activeBans.count || 0}`,
+        ],
+      },
+      {
+        title: `🚫 *Recent Bans (Last 10):*`,
+        items: bans?.map((ban: any) => {
+          const status = ban.expires_at && new Date(ban.expires_at) < new Date() 
+            ? "⏰ Expired" 
+            : "🔴 Active";
+          const expiryText = ban.expires_at 
+            ? `Expires: ${new Date(ban.expires_at).toLocaleDateString()}`
+            : "Permanent";
+          return `${status} ID: ${ban.telegram_id}\n📝 Reason: ${ban.reason || "No reason"}\n⏰ ${expiryText}\n👤 By: ${ban.created_by || "System"}`;
+        }) || [],
+        numbered: true,
+      },
+    ]);
+
+    const banKeyboard = {
+      inline_keyboard: [
+        [
+          { text: "➕ Add Ban", callback_data: "add_abuse_ban" },
+          { text: "🔍 Search Ban", callback_data: "search_abuse_ban" },
+        ],
+        [
+          { text: "🗑️ Remove Ban", callback_data: "remove_abuse_ban" },
+          { text: "📊 Export", callback_data: "export_abuse_bans" },
+        ],
+        [
+          { text: "🔄 Refresh", callback_data: "manage_table_abuse_bans" },
+          { text: "🔙 Back", callback_data: "table_management" },
+        ],
+      ],
+    };
+
+    await sendMessage(chatId, banMessage, banKeyboard);
+  } catch (error) {
+    console.error("Error in abuse_bans management:", error);
+    await sendMessage(chatId, "❌ Error managing ban data.");
+  }
 }
 
 // Individual table management handlers
