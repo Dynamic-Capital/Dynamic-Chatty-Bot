@@ -706,10 +706,23 @@ async function menuView(
     };
   }
   if (section === "support") {
-    const msg = await getContent("support_message");
+    const contactLinks = await fetchActiveContactLinks();
+    const supportMessage = await getContent("support_message") ??
+      `🛟 Need Help?
+
+Our support team is here for you!
+
+${contactLinks}
+
+🕐 Support Hours: 24/7
+We typically respond within 2-4 hours.`;
+
     return {
-      text: msg ?? "Support information is unavailable.",
-      extra: { reply_markup: await buildMainMenu(section) },
+      text: supportMessage,
+      extra: { 
+        reply_markup: await buildMainMenu(section),
+        parse_mode: "HTML" 
+      },
     };
   }
   const markup = await buildMainMenu(section) as {
@@ -912,6 +925,84 @@ async function storeReceiptImage(
   return storagePath;
 }
 
+/** Ensure bot user exists and return true if this is a new user */
+async function ensureBotUserExists(
+  telegramUserId: string,
+  firstName?: string,
+  lastName?: string,
+  username?: string,
+): Promise<boolean> {
+  const supa = getSupabase();
+  if (!supa) return false;
+
+  try {
+    // Check if user exists
+    const { data: existingUser } = await supa
+      .from("bot_users")
+      .select("id, telegram_id")
+      .eq("telegram_id", telegramUserId)
+      .maybeSingle();
+
+    if (existingUser) {
+      // User exists, update their info if provided
+      if (firstName || lastName || username) {
+        await supa
+          .from("bot_users")
+          .update({
+            first_name: firstName,
+            last_name: lastName,
+            username: username,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("telegram_id", telegramUserId);
+      }
+      return false; // Returning user
+    }
+
+    // Create new user
+    await supa.from("bot_users").insert({
+      telegram_id: telegramUserId,
+      first_name: firstName,
+      last_name: lastName,
+      username: username,
+    });
+
+    return true; // New user
+  } catch (error) {
+    console.error("Error in ensureBotUserExists:", error);
+    return false;
+  }
+}
+
+/** Fetch active contact links from database */
+async function fetchActiveContactLinks(): Promise<string> {
+  const supa = getSupabase();
+  if (!supa) {
+    return "📧 Email: support@dynamiccapital.com\n💬 Telegram: @DynamicCapital_Support";
+  }
+
+  try {
+    const { data: links } = await supa
+      .from("contact_links")
+      .select("platform, display_name, url, icon_emoji")
+      .eq("is_active", true)
+      .order("display_order");
+
+    if (!links || links.length === 0) {
+      return "📧 Email: support@dynamiccapital.com\n💬 Telegram: @DynamicCapital_Support";
+    }
+
+    return links
+      .map((link) => 
+        `${link.icon_emoji || "🔗"} ${link.display_name}: ${link.url}`
+      )
+      .join("\n");
+  } catch (error) {
+    console.error("Error fetching contact links:", error);
+    return "📧 Email: support@dynamiccapital.com\n💬 Telegram: @DynamicCapital_Support";
+  }
+}
+
 async function handleMembershipUpdate(update: TelegramUpdate): Promise<void> {
   const cm = update.chat_member ?? update.my_chat_member;
   if (!cm) return;
@@ -946,7 +1037,59 @@ async function handleMembershipUpdate(update: TelegramUpdate): Promise<void> {
 }
 
 export const commandHandlers: Record<string, CommandHandler> = {
-  "/start": async ({ chatId }) => {
+  "/start": async ({ chatId, msg }) => {
+    const telegramUserId = String(chatId);
+    const firstName = msg?.from?.first_name;
+    const lastName = msg?.from?.last_name;
+    const username = msg?.from?.username;
+    
+    // Check if auto intro is enabled
+    const autoIntroEnabled = await getFlag("auto_intro_enabled", true);
+    
+    if (autoIntroEnabled) {
+      // Ensure user exists and check if they're new
+      const isNewUser = await ensureBotUserExists(telegramUserId, firstName, lastName, username);
+      
+      if (isNewUser) {
+        // Send new user intro
+        const newUserIntro = await getContent("auto_intro_new") ??
+          `🎉 Welcome to Dynamic Capital VIP Bot!
+
+We're excited to have you join our premium trading community!
+
+🚀 What you can do:
+• View our VIP packages with /packages
+• Check active promotions with /promo  
+• Get help with /help or /faq
+• Contact support with /contact
+
+Let's get you started on your trading journey! 💎`;
+        
+        await sendMessage(chatId, newUserIntro);
+        await logInteraction("new_user_intro", telegramUserId);
+      } else {
+        // Send returning user intro
+        const returningUserIntro = await getContent("auto_intro_returning") ??
+          `👋 Welcome back to Dynamic Capital VIP Bot!
+
+Great to see you again! Here's what you can do:
+
+📊 Check your account: /account
+💎 Browse packages: /packages  
+🎁 View promotions: /promo
+❓ Get help: /help or /faq
+💬 Contact us: /contact
+
+Ready to continue your trading success? 🚀`;
+        
+        await sendMessage(chatId, returningUserIntro);
+        await logInteraction("returning_user_intro", telegramUserId);
+      }
+    } else {
+      // Auto intro disabled, just ensure user exists
+      await ensureBotUserExists(telegramUserId, firstName, lastName, username);
+    }
+    
     await showMainMenu(chatId, "dashboard");
   },
   "/app": async ({ chatId }) => {
@@ -963,6 +1106,26 @@ export const commandHandlers: Record<string, CommandHandler> = {
   },
   "/support": async ({ chatId }) => {
     await showMainMenu(chatId, "support");
+  },
+  "/contact": async ({ chatId }) => {
+    const contactLinks = await fetchActiveContactLinks();
+    const contactMessage = await getContent("contact_message") ??
+      `💬 Contact Dynamic Capital Support
+
+${contactLinks}
+
+🕐 Support Hours: 24/7
+📞 We typically respond within 2-4 hours
+
+How can we help you today?`;
+
+    await sendMessage(chatId, contactMessage, {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "🏠 Back to Dashboard", callback_data: "nav:dashboard" }]
+        ]
+      }
+    });
   },
   "/help": async ({ chatId }) => {
     await handleDashboardHelp(chatId, String(chatId));
