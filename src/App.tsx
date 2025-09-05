@@ -17,6 +17,7 @@ import Checkout from "./pages/Checkout";
 import PaymentStatus from "./pages/PaymentStatus";
 import MiniAppDemo from "./pages/MiniAppDemo";
 import TelegramSetup from "./pages/TelegramSetup";
+import MiniApp from "./pages/MiniApp";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +41,7 @@ const App = () => (
               <Route path="/build-miniapp" element={<BuildMiniApp />} />
               <Route path="/miniapp-demo" element={<MiniAppDemo />} />
               <Route path="/telegram-setup" element={<TelegramSetup />} />
+              <Route path="/miniapp" element={<MiniApp />} />
               <Route path="/welcome" element={<WelcomeMessage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
