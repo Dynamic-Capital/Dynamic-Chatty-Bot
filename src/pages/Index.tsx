@@ -2,6 +2,7 @@ import BotDashboard from "@/components/telegram/BotDashboard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { SystemResetButton } from "@/components/admin/SystemResetButton";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -68,6 +69,8 @@ const Index = () => {
           </Button>
         </CardContent>
       </Card>
+
+      <SystemResetButton />
       
       <BotDashboard />
     </div>
