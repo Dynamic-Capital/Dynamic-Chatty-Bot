@@ -13,9 +13,17 @@ export function setCallbackMessageId(id: number | null) {
   currentMessageId = id;
 }
 
+// Sanitize markdown to prevent Telegram parsing errors
+function sanitizeMarkdown(text: string): string {
+  return text
+    .replace(/[_*\[\]()~`>#+=|{}.!-]/g, '\\$&')
+    .replace(/\n/g, '\\n');
+}
+
 async function callTelegram(
   method: string,
   payload: Record<string, unknown>,
+  retryWithPlainText = false,
 ) {
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/${method}`;
   try {
@@ -27,6 +35,14 @@ async function callTelegram(
     if (!response.ok) {
       const errorData = await response.text();
       console.error(`❌ Telegram API error [${method}]:`, errorData);
+      
+      // If markdown parsing failed and we haven't retried yet, try with plain text
+      if (errorData.includes("can't parse entities") && !retryWithPlainText && payload.parse_mode === "Markdown") {
+        console.log("Retrying with plain text due to markdown parsing error");
+        const plainPayload = { ...payload, parse_mode: undefined };
+        return callTelegram(method, plainPayload, true);
+      }
+      
       return null;
     }
     return await response.json();
@@ -41,11 +57,40 @@ export async function sendMessage(
   text: string,
   replyMarkup?: Record<string, unknown>,
 ) {
+  // Split long messages into chunks to avoid Telegram limits
+  const MAX_MESSAGE_LENGTH = 4096;
+  if (text.length > MAX_MESSAGE_LENGTH) {
+    const chunks = [];
+    let currentChunk = "";
+    const lines = text.split("\\n");
+    
+    for (const line of lines) {
+      if ((currentChunk + line + "\\n").length > MAX_MESSAGE_LENGTH) {
+        if (currentChunk) chunks.push(currentChunk.trim());
+        currentChunk = line + "\\n";
+      } else {
+        currentChunk += line + "\\n";
+      }
+    }
+    if (currentChunk) chunks.push(currentChunk.trim());
+    
+    // Send all chunks except the last one without reply markup
+    for (let i = 0; i < chunks.length - 1; i++) {
+      await sendMessage(chatId, chunks[i]);
+    }
+    
+    // Send the last chunk with reply markup
+    if (chunks.length > 0) {
+      return sendMessage(chatId, chunks[chunks.length - 1], replyMarkup);
+    }
+  }
+
   const payload: Record<string, unknown> = {
     chat_id: chatId,
     text,
     reply_markup: replyMarkup,
     parse_mode: "Markdown",
+    disable_web_page_preview: true, // Improve performance
   };
 
   if (currentMessageId != null) {

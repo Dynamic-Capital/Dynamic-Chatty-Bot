@@ -2166,12 +2166,12 @@ export async function handleTableStatsOverview(
       ],
     };
 
-    await sendMessage(chatId, autoReplyMessage, autoReplyKeyboard);
+    await sendMessage(chatId, statsMessage, statsKeyboard);
   } catch (error) {
-    console.error("Error in auto reply templates management:", error);
+    console.error("Error in table stats overview:", error);
     await sendMessage(
       chatId,
-      "❌ Error fetching auto reply templates. Please try again.",
+      "❌ Error fetching table statistics. Please try again.",
     );
   }
 }

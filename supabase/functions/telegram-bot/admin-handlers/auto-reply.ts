@@ -5,14 +5,24 @@ export async function handleAutoReplyTemplatesManagement(
   _userId: string,
 ): Promise<void> {
   try {
-    const { data: templates, error } = await supabaseAdmin
-      .from("auto_reply_templates")
-      .select("id,name,trigger_type,is_active,created_at")
-      .order("created_at", { ascending: false })
-      .limit(10);
+    // Run queries in parallel for better performance
+    const [templatesResult, totalResult, activeResult] = await Promise.all([
+      supabaseAdmin
+        .from("auto_reply_templates")
+        .select("id,name,trigger_type,is_active,created_at")
+        .order("created_at", { ascending: false })
+        .limit(10),
+      supabaseAdmin
+        .from("auto_reply_templates")
+        .select("*", { count: "exact", head: true }),
+      supabaseAdmin
+        .from("auto_reply_templates")
+        .select("*", { count: "exact", head: true })
+        .eq("is_active", true)
+    ]);
 
-    if (error) {
-      console.error("Error fetching auto reply templates:", error);
+    if (templatesResult.error) {
+      console.error("Error fetching auto reply templates:", templatesResult.error);
       await sendMessage(
         chatId,
         "❌ Error fetching auto reply templates. Please try again.",
@@ -20,18 +30,12 @@ export async function handleAutoReplyTemplatesManagement(
       return;
     }
 
-    const total = await supabaseAdmin
-      .from("auto_reply_templates")
-      .select("count", { count: "exact" });
-    const active = await supabaseAdmin
-      .from("auto_reply_templates")
-      .select("count", { count: "exact" })
-      .eq("is_active", true);
+    const templates = templatesResult.data;
 
     let msg = `📝 *Auto Reply Templates Management*\\n\\n`;
     msg += `📊 *Statistics:*\\n`;
-    msg += `• Total Templates: ${total.count || 0}\\n`;
-    msg += `• Active Templates: ${active.count || 0}\\n\\n`;
+    msg += `• Total Templates: ${totalResult.count || 0}\\n`;
+    msg += `• Active Templates: ${activeResult.count || 0}\\n\\n`;
     msg += `🕒 *Recent Templates:*\\n`;
     templates?.forEach(
       (
