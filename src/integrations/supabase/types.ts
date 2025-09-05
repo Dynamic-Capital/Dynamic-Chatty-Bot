@@ -848,6 +848,50 @@ export type Database = {
           },
         ]
       }
+      plan_channels: {
+        Row: {
+          channel_name: string
+          channel_type: string | null
+          chat_id: string | null
+          created_at: string | null
+          id: string
+          invite_link: string
+          is_active: boolean | null
+          plan_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          channel_name: string
+          channel_type?: string | null
+          chat_id?: string | null
+          created_at?: string | null
+          id?: string
+          invite_link: string
+          is_active?: boolean | null
+          plan_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          channel_name?: string
+          channel_type?: string | null
+          chat_id?: string | null
+          created_at?: string | null
+          id?: string
+          invite_link?: string
+          is_active?: boolean | null
+          plan_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_channels_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null

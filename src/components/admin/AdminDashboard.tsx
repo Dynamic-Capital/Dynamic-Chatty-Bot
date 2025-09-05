@@ -243,6 +243,84 @@ export const AdminDashboard = () => {
           data = contacts || [];
           break;
         }
+        case "plan_channels": {
+          const { data: planChannels } = await supabase.from("plan_channels")
+            .select("*");
+          data = planChannels || [];
+          break;
+        }
+        case "subscription_plans": {
+          const { data: plans } = await supabase.from("subscription_plans")
+            .select("*");
+          data = plans || [];
+          break;
+        }
+        case "education_packages": {
+          const { data: packages } = await supabase.from("education_packages")
+            .select("*");
+          data = packages || [];
+          break;
+        }
+        case "bot_content": {
+          const { data: content } = await supabase.from("bot_content")
+            .select("*");
+          data = content || [];
+          break;
+        }
+        case "bot_settings": {
+          const { data: settings } = await supabase.from("bot_settings")
+            .select("*");
+          data = settings || [];
+          break;
+        }
+        case "user_sessions": {
+          const { data: sessions } = await supabase.from("user_sessions")
+            .select("*");
+          data = sessions || [];
+          break;
+        }
+        case "user_interactions": {
+          const { data: interactions } = await supabase.from("user_interactions")
+            .select("*");
+          data = interactions || [];
+          break;
+        }
+        case "broadcast_messages": {
+          const { data: broadcasts } = await supabase.from("broadcast_messages")
+            .select("*");
+          data = broadcasts || [];
+          break;
+        }
+        case "bank_accounts": {
+          const { data: accounts } = await supabase.from("bank_accounts")
+            .select("*");
+          data = accounts || [];
+          break;
+        }
+        case "auto_reply_templates": {
+          const { data: templates } = await supabase.from("auto_reply_templates")
+            .select("*");
+          data = templates || [];
+          break;
+        }
+        case "admin_logs": {
+          const { data: logs } = await supabase.from("admin_logs")
+            .select("*");
+          data = logs || [];
+          break;
+        }
+        case "channel_memberships": {
+          const { data: memberships } = await supabase.from("channel_memberships")
+            .select("*");
+          data = memberships || [];
+          break;
+        }
+        case "media_files": {
+          const { data: files } = await supabase.from("media_files")
+            .select("*");
+          data = files || [];
+          break;
+        }
         default:
           throw new Error("Invalid table name");
       }
@@ -596,38 +674,103 @@ export const AdminDashboard = () => {
             {[
               {
                 name: "bot_users",
-                title: "Bot Users",
-                description: "All registered users",
+                title: "👥 Bot Users",
+                description: "User management & admin status",
               },
               {
-                name: "payments",
-                title: "Payments",
-                description: "Payment transactions",
+                name: "subscription_plans",
+                title: "💎 Subscription Plans",
+                description: "VIP packages & pricing",
               },
               {
-                name: "user_subscriptions",
-                title: "Subscriptions",
-                description: "User subscriptions",
+                name: "plan_channels",
+                title: "📢 Plan Channels",
+                description: "Channel & group links per plan",
               },
               {
-                name: "education_enrollments",
-                title: "Enrollments",
-                description: "Education enrollments",
+                name: "education_packages",
+                title: "🎓 Education Packages",
+                description: "Courses & learning content",
               },
               {
                 name: "promotions",
-                title: "Promotions",
-                description: "Promotion codes",
+                title: "💰 Promotions",
+                description: "Discount codes & campaigns",
+              },
+              {
+                name: "bot_content",
+                title: "📱 Bot Content",
+                description: "Messages & UI text",
+              },
+              {
+                name: "bot_settings",
+                title: "⚙️ Bot Settings",
+                description: "Configuration & behavior",
               },
               {
                 name: "daily_analytics",
-                title: "Analytics",
-                description: "Daily analytics data",
+                title: "📈 Analytics",
+                description: "User data & conversion tracking",
+              },
+              {
+                name: "user_sessions",
+                title: "💬 User Sessions",
+                description: "Active sessions & state",
+              },
+              {
+                name: "user_interactions",
+                title: "🎯 User Interactions",
+                description: "Activity tracking",
+              },
+              {
+                name: "payments",
+                title: "💳 Payments",
+                description: "Transaction records",
+              },
+              {
+                name: "broadcast_messages",
+                title: "📢 Broadcast Messages",
+                description: "Mass communication",
+              },
+              {
+                name: "bank_accounts",
+                title: "🏦 Bank Accounts",
+                description: "Payment methods",
+              },
+              {
+                name: "auto_reply_templates",
+                title: "📝 Auto Reply Templates",
+                description: "Automated responses",
+              },
+              {
+                name: "user_subscriptions",
+                title: "📋 User Subscriptions",
+                description: "User subscription records",
+              },
+              {
+                name: "education_enrollments",
+                title: "🎓 Education Enrollments",
+                description: "Course enrollments",
               },
               {
                 name: "contact_links",
-                title: "Contact Links",
+                title: "📞 Contact Links",
                 description: "Bot contact information",
+              },
+              {
+                name: "admin_logs",
+                title: "📋 Admin Logs",
+                description: "Administrative actions",
+              },
+              {
+                name: "channel_memberships",
+                title: "👥 Channel Memberships",
+                description: "User channel access",
+              },
+              {
+                name: "media_files",
+                title: "📎 Media Files",
+                description: "Uploaded files & media",
               },
             ].map((table) => (
               <Card key={table.name}>
