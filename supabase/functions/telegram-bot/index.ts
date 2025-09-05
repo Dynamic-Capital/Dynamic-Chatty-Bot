@@ -588,6 +588,14 @@ export function buildCallbackHandlers(
       handlers.handleBankAccountsManagement(chatId, userId),
     manage_table_auto_reply_templates: (chatId, userId) =>
       handlers.handleAutoReplyTemplatesManagement(chatId, userId),
+    manage_table_user_interactions: (chatId, userId) =>
+      handlers.handleUserInteractionsManagement(chatId, userId),
+    manage_table_channel_memberships: (chatId, userId) =>
+      handlers.handleChannelMembershipsManagement(chatId, userId),
+    manage_table_media_files: (chatId, userId) =>
+      handlers.handleMediaFilesManagement(chatId, userId),
+    manage_table_admin_logs: (chatId, userId) =>
+      handlers.handleAdminLogsManagement(chatId, userId),
     edit_content_welcome_message: (chatId, userId) =>
       handlers.handleEditContent(chatId, userId, "welcome_message"),
     edit_content_about_us: (chatId, userId) =>

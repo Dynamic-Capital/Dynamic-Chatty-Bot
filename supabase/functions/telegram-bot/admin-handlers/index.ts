@@ -344,6 +344,26 @@ View, Create, Edit, Delete, Export data for any table.`;
           text: "📝 Templates",
           callback_data: "manage_table_auto_reply_templates",
         },
+        {
+          text: "🎯 Interactions",
+          callback_data: "manage_table_user_interactions",
+        },
+      ],
+      [
+        {
+          text: "👥 Memberships",
+          callback_data: "manage_table_channel_memberships",
+        },
+        {
+          text: "📎 Media Files",
+          callback_data: "manage_table_media_files",
+        },
+      ],
+      [
+        {
+          text: "📋 Admin Logs",
+          callback_data: "manage_table_admin_logs",
+        },
         { text: "📊 Quick Stats", callback_data: "table_stats_overview" },
       ],
       [
@@ -1941,6 +1961,9 @@ export async function handleTableStatsOverview(
       "broadcast_messages",
       "daily_analytics",
       "user_interactions",
+      "channel_memberships",
+      "media_files", 
+      "admin_logs",
     ];
 
     let statsMessage = `📊 *Database Overview & Statistics*\n\n`;
@@ -1963,6 +1986,9 @@ export async function handleTableStatsOverview(
           "broadcast_messages": "📢",
           "daily_analytics": "📈",
           "user_interactions": "🎯",
+          "channel_memberships": "👥",
+          "media_files": "📎",
+          "admin_logs": "📋",
         }[table] || "📊";
 
         const tableName = table.replace(/_/g, " ").replace(
@@ -1995,6 +2021,213 @@ export async function handleTableStatsOverview(
         ],
         [
           { text: "🔙 Back to Tables", callback_data: "table_management" },
+        ],
+      ],
+    };
+
+    await sendMessage(chatId, autoReplyMessage, autoReplyKeyboard);
+  } catch (error) {
+    console.error("Error in auto reply templates management:", error);
+    await sendMessage(
+      chatId,
+      "❌ Error fetching auto reply templates. Please try again.",
+    );
+  }
+}
+
+// Additional missing table handlers
+export async function handleUserInteractionsManagement(
+  chatId: number,
+  _userId: string,
+): Promise<void> {
+  try {
+    const { data: interactions, count } = await supabaseAdmin
+      .from("user_interactions")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    let interactionsMessage = `🎯 *User Interactions Management*\n\n`;
+    interactionsMessage += `📊 Total Records: ${count || 0}\n\n`;
+
+    if (interactions && interactions.length > 0) {
+      interactionsMessage += `📋 *Recent Interactions:*\n`;
+      interactions.forEach((interaction, index) => {
+        interactionsMessage += `${index + 1}. **Type:** ${interaction.interaction_type}`;
+        interactionsMessage += `\n   **User:** ${interaction.telegram_user_id}`;
+        interactionsMessage += `\n   **Date:** ${new Date(interaction.created_at).toLocaleDateString()}`;
+        if (interaction.page_context) {
+          interactionsMessage += `\n   **Context:** ${interaction.page_context}`;
+        }
+        interactionsMessage += `\n\n`;
+      });
+    } else {
+      interactionsMessage += `📋 No interactions found.\n\n`;
+    }
+
+    const interactionsKeyboard = {
+      inline_keyboard: [
+        [
+          {
+            text: "🔄 Refresh",
+            callback_data: "manage_table_user_interactions",
+          },
+          { text: "🔙 Back", callback_data: "table_management" },
+        ],
+      ],
+    };
+
+    await sendMessage(chatId, interactionsMessage, interactionsKeyboard);
+  } catch (error) {
+    console.error("Error in user interactions management:", error);
+    await sendMessage(
+      chatId,
+      "❌ Error fetching user interactions. Please try again.",
+    );
+  }
+}
+
+export async function handleChannelMembershipsManagement(
+  chatId: number,
+  _userId: string,
+): Promise<void> {
+  try {
+    const { data: memberships, count } = await supabaseAdmin
+      .from("channel_memberships")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    let membershipsMessage = `👥 *Channel Memberships Management*\n\n`;
+    membershipsMessage += `📊 Total Records: ${count || 0}\n\n`;
+
+    if (memberships && memberships.length > 0) {
+      membershipsMessage += `📋 *Recent Memberships:*\n`;
+      memberships.forEach((membership, index) => {
+        membershipsMessage += `${index + 1}. **Channel:** ${membership.channel_name || membership.channel_id}`;
+        membershipsMessage += `\n   **User:** ${membership.telegram_user_id}`;
+        membershipsMessage += `\n   **Status:** ${membership.is_active ? '✅ Active' : '❌ Inactive'}`;
+        membershipsMessage += `\n   **Added:** ${new Date(membership.created_at).toLocaleDateString()}`;
+        membershipsMessage += `\n\n`;
+      });
+    } else {
+      membershipsMessage += `📋 No memberships found.\n\n`;
+    }
+
+    const membershipsKeyboard = {
+      inline_keyboard: [
+        [
+          {
+            text: "🔄 Refresh",
+            callback_data: "manage_table_channel_memberships",
+          },
+          { text: "🔙 Back", callback_data: "table_management" },
+        ],
+      ],
+    };
+
+    await sendMessage(chatId, membershipsMessage, membershipsKeyboard);
+  } catch (error) {
+    console.error("Error in channel memberships management:", error);
+    await sendMessage(
+      chatId,
+      "❌ Error fetching channel memberships. Please try again.",
+    );
+  }
+}
+
+export async function handleMediaFilesManagement(
+  chatId: number,
+  _userId: string,
+): Promise<void> {
+  try {
+    const { data: files, count } = await supabaseAdmin
+      .from("media_files")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    let filesMessage = `📎 *Media Files Management*\n\n`;
+    filesMessage += `📊 Total Records: ${count || 0}\n\n`;
+
+    if (files && files.length > 0) {
+      filesMessage += `📋 *Recent Files:*\n`;
+      files.forEach((file, index) => {
+        filesMessage += `${index + 1}. **File:** ${file.filename}`;
+        filesMessage += `\n   **Type:** ${file.file_type}`;
+        if (file.file_size) {
+          filesMessage += `\n   **Size:** ${Math.round(file.file_size / 1024)} KB`;
+        }
+        filesMessage += `\n   **Uploaded:** ${new Date(file.created_at).toLocaleDateString()}`;
+        if (file.uploaded_by) {
+          filesMessage += `\n   **By:** ${file.uploaded_by}`;
+        }
+        filesMessage += `\n\n`;
+      });
+    } else {
+      filesMessage += `📋 No media files found.\n\n`;
+    }
+
+    const filesKeyboard = {
+      inline_keyboard: [
+        [
+          {
+            text: "🔄 Refresh",
+            callback_data: "manage_table_media_files",
+          },
+          { text: "🔙 Back", callback_data: "table_management" },
+        ],
+      ],
+    };
+
+    await sendMessage(chatId, filesMessage, filesKeyboard);
+  } catch (error) {
+    console.error("Error in media files management:", error);
+    await sendMessage(
+      chatId,
+      "❌ Error fetching media files. Please try again.",
+    );
+  }
+}
+
+export async function handleAdminLogsManagement(
+  chatId: number,
+  _userId: string,
+): Promise<void> {
+  try {
+    const { data: logs, count } = await supabaseAdmin
+      .from("admin_logs")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    let logsMessage = `📋 *Admin Logs Management*\n\n`;
+    logsMessage += `📊 Total Records: ${count || 0}\n\n`;
+
+    if (logs && logs.length > 0) {
+      logsMessage += `📋 *Recent Admin Actions:*\n`;
+      logs.forEach((log, index) => {
+        logsMessage += `${index + 1}. **Action:** ${log.action_type}`;
+        logsMessage += `\n   **Admin:** ${log.admin_telegram_id}`;
+        logsMessage += `\n   **Description:** ${log.action_description}`;
+        logsMessage += `\n   **Date:** ${new Date(log.created_at).toLocaleDateString()}`;
+        if (log.affected_table) {
+          logsMessage += `\n   **Table:** ${log.affected_table}`;
+        }
+        logsMessage += `\n\n`;
+      });
+    } else {
+      logsMessage += `📋 No admin logs found.\n\n`;
+    }
+
+    const logsKeyboard = {
+      inline_keyboard: [
+        [
+          {
+            text: "🔄 Refresh",
+            callback_data: "manage_table_admin_logs",
+          },
+          { text: "🔙 Back", callback_data: "table_management" },
         ],
       ],
     };
@@ -2036,6 +2269,10 @@ export async function handleExportAllTables(
       "broadcast_messages",
       "bank_accounts",
       "auto_reply_templates",
+      "user_interactions",
+      "channel_memberships", 
+      "media_files",
+      "admin_logs",
     ];
 
     const exportData: Record<string, unknown[]> = {};
