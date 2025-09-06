@@ -1043,54 +1043,64 @@ export const commandHandlers: Record<string, CommandHandler> = {
     const lastName = msg?.from?.last_name;
     const username = msg?.from?.username;
     
-    // Check if auto intro is enabled
-    const autoIntroEnabled = await getFlag("auto_intro_enabled", true);
+    // Ensure user exists 
+    const isNewUser = await ensureBotUserExists(telegramUserId, firstName, lastName, username);
     
-    if (autoIntroEnabled) {
-      // Ensure user exists and check if they're new
-      const isNewUser = await ensureBotUserExists(telegramUserId, firstName, lastName, username);
-      
-      if (isNewUser) {
-        // Send new user intro
-        const newUserIntro = await getContent("auto_intro_new") ??
-          `🎉 Welcome to Dynamic Capital VIP Bot!
+    // Get welcome message with improved default
+    const welcomeMessage = await getContent("welcome_message") ?? 
+      `👋 <b>Welcome to Dynamic Capital VIP!</b>
 
-We're excited to have you join our premium trading community!
+🚀 Premium signals &amp; expert guidance
+✅ Smart risk management  
+🤝 Join thousands of successful traders
 
-🚀 What you can do:
-• View our VIP packages with /packages
-• Check active promotions with /promo  
-• Get help with /help or /faq
-• Contact support with /contact
+<b>What would you like to do?</b>`;
 
-Let's get you started on your trading journey! 💎`;
-        
-        await sendMessage(chatId, newUserIntro);
-        await logInteraction("new_user_intro", telegramUserId);
-      } else {
-        // Send returning user intro
-        const returningUserIntro = await getContent("auto_intro_returning") ??
-          `👋 Welcome back to Dynamic Capital VIP Bot!
-
-Great to see you again! Here's what you can do:
-
-📊 Check your account: /account
-💎 Browse packages: /packages  
-🎁 View promotions: /promo
-❓ Get help: /help or /faq
-💬 Contact us: /contact
-
-Ready to continue your trading success? 🚀`;
-        
-        await sendMessage(chatId, returningUserIntro);
-        await logInteraction("returning_user_intro", telegramUserId);
-      }
-    } else {
-      // Auto intro disabled, just ensure user exists
-      await ensureBotUserExists(telegramUserId, firstName, lastName, username);
+    // Get current Mini App configuration
+    const { url } = await readMiniAppEnv();
+    const continueText = await getContent("continue_in_bot_button") ?? "Continue in Bot";
+    const miniText = await getContent("miniapp_button_text") ?? "🚀 Open VIP Mini App";
+    
+    // Build enhanced keyboard
+    const keyboard: {
+      text: string;
+      callback_data?: string;
+      web_app?: { url: string };
+    }[][] = [
+      [{ text: continueText, callback_data: "nav:dashboard" }]
+    ];
+    
+    // Always add Mini App button since readMiniAppEnv now auto-derives URL
+    if (url) {
+      keyboard[0].push({ text: miniText, web_app: { url } });
     }
     
-    await showMainMenu(chatId, "dashboard");
+    // Add popular actions
+    keyboard.push([
+      { text: "💳 Plans", callback_data: "nav:plans" },
+      { text: "📦 Packages", callback_data: "cmd:education" }
+    ]);
+    
+    // Add utility actions
+    keyboard.push([
+      { text: "🎁 Promo", callback_data: "cmd:promo" },
+      { text: "👤 Account", callback_data: "nav:dashboard" },
+      { text: "❓ FAQ", callback_data: "cmd:faq" }
+    ]);
+    
+    // Add advanced actions
+    keyboard.push([
+      { text: "📚 Education", callback_data: "cmd:education" },
+      { text: "🤔 Should I Buy?", callback_data: "cmd:shouldibuy" },
+      { text: "💬 Support", callback_data: "nav:support" }
+    ]);
+
+    await sendMessage(chatId, welcomeMessage, {
+      reply_markup: { inline_keyboard: keyboard },
+      parse_mode: "HTML"
+    });
+    
+    await logInteraction(isNewUser ? "new_user_start" : "returning_user_start", telegramUserId);
   },
   "/app": async ({ chatId }) => {
     await showMainMenu(chatId, "dashboard");

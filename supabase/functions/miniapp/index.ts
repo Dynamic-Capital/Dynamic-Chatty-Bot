@@ -118,21 +118,21 @@ async function fetchFromStorage(key: string): Promise<Uint8Array | null> {
 
 // Serve static files from the built React app with fallback
 async function serveStaticIndex(): Promise<Response | null> {
-  try {
-    const staticIndexPath = new URL("./static/index.html", import.meta.url);
-    const htmlContent = await Deno.readTextFile(staticIndexPath);
-    console.log(`[miniapp] Serving static index.html (${htmlContent.length} bytes)`);
-    return new Response(htmlContent, {
-      headers: {
-        "content-type": "text/html; charset=utf-8",
-        "cache-control": "no-cache",
-        "x-served-from": "static"
+      try {
+        const staticIndexPath = new URL("./static/index.html", import.meta.url);
+        const htmlContent = await Deno.readTextFile(staticIndexPath);
+        console.log(`[miniapp] Serving static index.html (${htmlContent.length} bytes)`);
+        return new Response(htmlContent, {
+          headers: {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "no-cache",
+            "x-served-from": "static"
+          }
+        });
+      } catch (e) {
+        console.warn("[miniapp] Static index.html not found:", e.message);
+        return null;
       }
-    });
-  } catch (e) {
-    console.warn("[miniapp] Static index.html not found:", e.message);
-    return null;
-  }
 }
 
 // Embedded React App HTML Template
