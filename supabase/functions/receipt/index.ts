@@ -25,9 +25,9 @@ serve(async (req) => {
     const ext = file.name.split(".").pop();
     const path = `${u.id}/${crypto.randomUUID()}${ext ? `.${ext}` : ""}`;
     if (supa) {
-      await supa.storage.from("receipts").upload(path, file).catch(() => null);
+      await supa.storage.from("payment-receipts").upload(path, file).catch(() => null);
     }
-    return ok({ bucket: "receipts", path });
+    return ok({ bucket: "payment-receipts", path });
   }
 
   // Approval / rejection

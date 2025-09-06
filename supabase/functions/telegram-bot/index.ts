@@ -919,7 +919,7 @@ async function storeReceiptImage(
   storagePath: string,
 ): Promise<string> {
   const supabase = getSupabase();
-  await supabase?.storage.from("receipts").upload(storagePath, blob, {
+  await supabase?.storage.from("payment-receipts").upload(storagePath, blob, {
     contentType: blob.type || undefined,
   });
   return storagePath;
@@ -1729,12 +1729,19 @@ export async function startReceiptPipeline(
     const hash = await hashBytesToSha256(blob);
     const storagePath = `receipts/${chatId}/${hash}`;
     await storeReceiptImage(blob, storagePath);
+    
+    // Get plan details for proper amount
+    const { data: plan } = await supa.from("subscription_plans")
+      .select("price, currency")
+      .eq("id", planId)
+      .maybeSingle();
+    
     const { data: pay } = await supa.from("payments")
       .insert({
         user_id: user.id,
         plan_id: planId,
-        amount: null,
-        currency: "USD",
+        amount: plan?.price || 0,
+        currency: plan?.currency || "USD",
         payment_method: "bank_transfer",
         status: "pending",
       })

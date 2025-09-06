@@ -44,7 +44,7 @@ serve(async (req) => {
     .update({
       status: "pending",
       webhook_data: {
-        storage_bucket: body.storage_bucket || "receipts",
+        storage_bucket: body.storage_bucket || "payment-receipts",
         storage_path: body.storage_path,
       },
     })

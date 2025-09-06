@@ -360,6 +360,160 @@ console.log(
   DISABLE_HTML_COMPRESSION
 );
 
+// API Routes Handler
+async function handleApiRoutes(req: Request, path: string): Promise<Response> {
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  };
+
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  // POST /api/receipt - Receipt upload
+  if (path === "/api/receipt" && req.method === "POST") {
+    try {
+      const form = await req.formData();
+      const initData = String(form.get("initData") || "");
+      const file = form.get("image");
+      
+      if (!(file instanceof File)) {
+        return new Response(JSON.stringify({ error: "image required" }), { 
+          status: 400,
+          headers: { ...corsHeaders, "content-type": "application/json" }
+        });
+      }
+
+      // Verify initData (simple implementation)
+      if (!initData) {
+        return new Response(JSON.stringify({ error: "initData required" }), { 
+          status: 401,
+          headers: { ...corsHeaders, "content-type": "application/json" }
+        });
+      }
+
+      // Generate storage path
+      const ext = file.name.split(".").pop();
+      const userId = "temp"; // In real implementation, extract from initData
+      const path = `receipts/${userId}/${crypto.randomUUID()}${ext ? `.${ext}` : ""}`;
+      
+      // Upload to storage
+      try {
+        await supabase.storage.from("payment-receipts").upload(path, file);
+        
+        return new Response(JSON.stringify({ 
+          ok: true, 
+          bucket: "payment-receipts", 
+          path 
+        }), { 
+          headers: { ...corsHeaders, "content-type": "application/json" }
+        });
+      } catch (uploadError) {
+        console.error("Upload error:", uploadError);
+        return new Response(JSON.stringify({ 
+          error: "Failed to upload receipt" 
+        }), { 
+          status: 500,
+          headers: { ...corsHeaders, "content-type": "application/json" }
+        });
+      }
+    } catch (error) {
+      console.error("Receipt upload error:", error);
+      return new Response(JSON.stringify({ 
+        error: "Failed to submit receipt. Please try again later." 
+      }), { 
+        status: 500,
+        headers: { ...corsHeaders, "content-type": "application/json" }
+      });
+    }
+  }
+
+  // GET /api/receipts - Get receipts
+  if (path.startsWith("/api/receipts") && req.method === "GET") {
+    const url = new URL(req.url);
+    const limit = parseInt(url.searchParams.get("limit") || "10");
+    const status = url.searchParams.get("status");
+    
+    // Mock response for now
+    const receipts = [];
+    return new Response(JSON.stringify({ receipts }), {
+      headers: { ...corsHeaders, "content-type": "application/json" }
+    });
+  }
+
+  // POST /api/receipt/:id/approve - Approve receipt
+  const approveMatch = path.match(/^\/api\/receipt\/([^/]+)\/approve$/);
+  if (approveMatch && req.method === "POST") {
+    const id = approveMatch[1];
+    // Mock approval
+    return new Response(JSON.stringify({ ok: true }), {
+      headers: { ...corsHeaders, "content-type": "application/json" }
+    });
+  }
+
+  // POST /api/receipt/:id/reject - Reject receipt
+  const rejectMatch = path.match(/^\/api\/receipt\/([^/]+)\/reject$/);
+  if (rejectMatch && req.method === "POST") {
+    const id = rejectMatch[1];
+    // Mock rejection
+    return new Response(JSON.stringify({ ok: true }), {
+      headers: { ...corsHeaders, "content-type": "application/json" }
+    });
+  }
+
+  // POST /api/intent - Create payment intent
+  if (path === "/api/intent" && req.method === "POST") {
+    try {
+      const body = await req.json();
+      const payCode = `PAY_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+      
+      return new Response(JSON.stringify({ 
+        ok: true, 
+        pay_code: payCode,
+        type: body.type || "bank"
+      }), {
+        headers: { ...corsHeaders, "content-type": "application/json" }
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({ 
+        error: "Failed to create payment intent" 
+      }), { 
+        status: 500,
+        headers: { ...corsHeaders, "content-type": "application/json" }
+      });
+    }
+  }
+
+  // POST /api/crypto-txid - Submit crypto transaction
+  if (path === "/api/crypto-txid" && req.method === "POST") {
+    try {
+      const body = await req.json();
+      
+      return new Response(JSON.stringify({ 
+        ok: true, 
+        txid: body.txid 
+      }), {
+        headers: { ...corsHeaders, "content-type": "application/json" }
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({ 
+        error: "Failed to submit transaction" 
+      }), { 
+        status: 500,
+        headers: { ...corsHeaders, "content-type": "application/json" }
+      });
+    }
+  }
+
+  // API route not found
+  return new Response(JSON.stringify({ error: "API endpoint not found" }), { 
+    status: 404,
+    headers: { ...corsHeaders, "content-type": "application/json" }
+  });
+}
+
 export async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
   url.pathname = url.pathname.replace(/^\/functions\/v1/, "");
@@ -558,6 +712,11 @@ export async function handler(req: Request): Promise<Response> {
     
     const resp = new Response(arr, { status: 200, headers });
     return withSecurity(resp);
+  }
+
+  // API Routes
+  if (path.startsWith("/api/")) {
+    return handleApiRoutes(req, path);
   }
 
   // Unknown path → 404

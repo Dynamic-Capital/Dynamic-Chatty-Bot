@@ -26,13 +26,13 @@ export async function handler(req: Request): Promise<Response> {
 
   const key = `receipts/${body.telegram_id}/${crypto.randomUUID()}-${body.filename}`;
   const { data: signed, error } = await supa.storage
-    .from("receipts")
+    .from("payment-receipts")
     .createSignedUploadUrl(key);
   if (error) {
     return oops(error.message);
   }
 
-  return ok({ bucket: "receipts", path: key, signed });
+  return ok({ bucket: "payment-receipts", path: key, signed });
 }
 
 if (import.meta.main) serve(handler);
