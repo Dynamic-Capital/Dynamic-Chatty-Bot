@@ -163,4 +163,58 @@ export function __setGetContent(fn: typeof getContent) {
   getContent = fn;
 }
 
+// Batch get multiple content keys for performance
+export async function getContentBatch(
+  keys: string[],
+  defaults: Record<string, string> = {},
+): Promise<Record<string, string | null>> {
+  if (keys.length === 0) return {};
+  
+  // Check cache first
+  const cached: Record<string, string | null> = {};
+  const uncached: string[] = [];
+  
+  for (const key of keys) {
+    const hit = getCached<string>(`c:${key}`);
+    if (hit !== null) {
+      cached[key] = hit;
+    } else {
+      uncached.push(key);
+    }
+  }
+  
+  if (uncached.length === 0) return cached;
+  
+  const client = getClient();
+  if (!client) {
+    return keys.reduce((acc, key) => ({ 
+      ...acc, 
+      [key]: cached[key] ?? defaults[key] ?? null 
+    }), {});
+  }
+
+  try {
+    const { data, error } = await client.rpc("get_bot_content_batch", {
+      content_keys: uncached,
+    });
+
+    if (error) throw error;
+    
+    const result: Record<string, string | null> = { ...cached };
+    for (const key of uncached) {
+      const found = data?.find((row: any) => row.content_key === key);
+      const value = found?.content_value ?? defaults[key] ?? null;
+      result[key] = value;
+      if (value !== null) setCached(`c:${key}`, value);
+    }
+    
+    return result;
+  } catch {
+    return keys.reduce((acc, key) => ({ 
+      ...acc, 
+      [key]: cached[key] ?? defaults[key] ?? null 
+    }), {});
+  }
+}
+
 export { envOrSetting, getConfig, requireSetting, setConfig };

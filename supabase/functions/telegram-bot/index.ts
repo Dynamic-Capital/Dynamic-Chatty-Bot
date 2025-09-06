@@ -15,7 +15,7 @@ import {
 } from "./database-utils.ts";
 import { createClient } from "../_shared/client.ts";
 type SupabaseClient = ReturnType<typeof createClient>;
-import { envOrSetting, getContent, getFlag } from "../_shared/config.ts";
+import { envOrSetting, getContent, getContentBatch, getFlag } from "../_shared/config.ts";
 import { buildMainMenu, type MenuSection } from "./menu.ts";
 import { readMiniAppEnv } from "../_shared/miniapp.ts";
 import {
@@ -1828,7 +1828,7 @@ export async function serveWebhook(req: Request): Promise<Response> {
       return ok({ pong: true });
     }
     if (!body) {
-      console.log("telegram-bot: empty/invalid JSON");
+      // Empty/invalid JSON - skip logging to reduce noise
       return json({ ok: false, error: "Invalid JSON" }, 400);
     }
     const update = body as TelegramUpdate;
@@ -1889,7 +1889,7 @@ export async function serveWebhook(req: Request): Promise<Response> {
     return ok({ handled: true });
   } catch (e) {
     const errMsg = e instanceof Error ? e.message : String(e);
-    console.log("telegram-bot fatal:", errMsg);
+    console.error("telegram-bot error:", errMsg);
     await alertAdmins(`🚨 <b>Bot error</b>\n<code>${String(e)}</code>`);
     try {
       const supa = supaSvc();
